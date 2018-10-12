@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration><property>
+	<name>mapreduce.framework.name</name>
+	<value>yarn</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.address</name>
+	<value>10.131.6.45:5022</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.cleaner.enable</name>
+	<value>true</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.datestring.cache.size</name>
+	<value>200000</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.webapp.address</name>
+	<value>10.131.6.45:5024</value>
+</property>
+<property>
+	<name>yarn.app.mapreduce.am.staging-dir</name>
+	<value>/emr/hadoop-yarn/staging</value>
+</property>
+<property>
+	<name>local.cache.size</name>
+	<value>10737418240</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.admin.address</name>
+	<value>10.131.6.45:5023</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.cleaner.interval-ms</name>
+	<value>604800000</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.joblist.cache.size</name>
+	<value>20000</value>
+</property>
+<property>
+	<name>mapreduce.jobhistory.max-age-ms</name>
+	<value>604800000</value>
+</property>
+<property>
+	<name>mapred.local.dir</name>
+	<value>/data/emr/yarn/local</value>
+</property>
+</configuration>
