@@ -2,7 +2,7 @@
 
 jar=$1
 jar=${jar:=panda_spark.jar}
-
+echo $jar
 mvn clean compile package
 
 dir=/Users/likaiqing/space/panda/panda_spark/target

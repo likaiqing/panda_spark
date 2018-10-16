@@ -1,5 +1,7 @@
+com/pandatv/tools/MysqlPool.class
 com/pandatv/tools/RedisClient$CleanWorkThread.class
 com/pandatv/tools/RedisClient.class
 com/pandatv/streaming/ChangeCla.class
 com/pandatv/streaming/UserWatchDuration.class
+com/pandatv/tools/MysqlPool$1.class
 com/pandatv/App.class

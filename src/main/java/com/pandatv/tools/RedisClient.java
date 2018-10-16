@@ -30,6 +30,9 @@ public class RedisClient implements Serializable {
     public RedisClient(String host, int port) {
         this.host = host;
         Runtime.getRuntime().addShutdownHook(new CleanWorkThread());
+        if (null == jedisPool) {
+
+        }
         jedisPool = new JedisPool(config, host, port);
     }
 
