@@ -1,5 +1,6 @@
 package com.pandatv.streaming;
 
+import com.google.common.base.Splitter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -34,9 +35,9 @@ public class ChangeCla {
 //    private static final String redisPwd = "";
 //    private static final int redisPort = 6379;
 
-    private static final String redisHost = "10.131.11.151";
-    private static final String redisPwd = "Hdx03DqyIwOSrEDU";
-    private static final int redisPort = 6974;
+    private static String redisHost = "10.131.11.151";
+    private static String redisPwd = "Hdx03DqyIwOSrEDU";
+    private static int redisPort = 6974;
 
     //    private static RedisClient redisClient;//如果有内部类，使用到此变量使用全局变量(定时更新某些广播变量的线程)
     public static void main(String[] args) throws InterruptedException {
@@ -44,7 +45,7 @@ public class ChangeCla {
         kafkaParams.put("bootstrap.servers", "10.131.6.79:9092");
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", StringDeserializer.class);
-        kafkaParams.put("group.id", "streaming_changecate_test");
+        kafkaParams.put("group.id", "streaming_changecate");
         kafkaParams.put("auto.offset.reset", "latest");
         kafkaParams.put("enable.auto.commit", false);
         SparkConf conf = new SparkConf().setAppName("panda_classify_stream");
@@ -52,60 +53,78 @@ public class ChangeCla {
 
         JavaSparkContext context = ssc.sparkContext();
 
+        Map<String, String> map = new HashMap<>();
+        if (args.length > 0) {
+            map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
+        }
         /**
          * 广播redis相关变量
          */
+        redisHost = map.getOrDefault("redisHost", "10.131.11.151");
+        redisPwd = map.getOrDefault("redisPwd", "Hdx03DqyIwOSrEDU");
+        redisPort = Integer.parseInt(map.getOrDefault("redisPort", "6974"));
         Broadcast<String> redisHostBroadcast = context.broadcast(redisHost);
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
 
+        String[] topics = map.getOrDefault("topics", "panda_realtime_panda_classify_stream").split("-");
         JavaInputDStream<ConsumerRecord<Object, Object>> message = KafkaUtils.createDirectStream(
                 ssc,
                 LocationStrategies.PreferConsistent(),
-                ConsumerStrategies.Subscribe(Arrays.asList("panda_realtime_panda_classify_stream"), kafkaParams));
+                ConsumerStrategies.Subscribe(Arrays.asList(topics), kafkaParams));
 
         message.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
             rdd.map(r -> r.value()).foreachPartition(par -> {
-                Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
-                if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
-                    jedis.auth(redisPwdBroadcast.value());
-                }
-                Pipeline pipelined = jedis.pipelined();
-                SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                while (par.hasNext()) {
-                    String next = par.next().toString();
-                    String[] arr = next.split("\t");
-                    String roomId = null;
-                    String newClaEname = null;
-                    long timeU = 0;
-                    if (arr.length >= 1) {
-                        roomId = arr[0];
-                    } else {
-                        continue;
-                    }
-                    if (arr.length >= 4) {
-                        newClaEname = arr[3];
-                    } else {
-                        continue;
-                    }
-                    if (arr.length >= 6) {
-                        try {
-                            timeU = format.parse(arr[5]).getTime() / 1000;
-                        } catch (ParseException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        continue;
-                    }
-                    pipelined.zadd(new StringBuffer("room:changecla:").append(roomId).toString(), timeU, newClaEname);
-                    System.out.println("room:changecla:" + roomId + ";timeU:" + timeU + ";cla:" + newClaEname);
-                }
-                pipelined.sync();
-                pipelined.close();
-                jedis.close();
                 OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
-
+                if (o.fromOffset() != o.untilOffset()) {
+                    System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
+                }
+                Jedis jedis = null;
+                try {
+                    jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
+                    if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
+                        jedis.auth(redisPwdBroadcast.value());
+                    }
+                    Pipeline pipelined = jedis.pipelined();
+                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    while (par.hasNext()) {
+                        String next = par.next().toString();
+                        String[] arr = next.split("\t");
+                        String roomId = null;
+                        String newClaEname = null;
+                        long timeU = 0;
+                        if (arr.length >= 1) {
+                            roomId = arr[0];
+                        } else {
+                            continue;
+                        }
+                        if (arr.length >= 4) {
+                            newClaEname = arr[3];
+                        } else {
+                            continue;
+                        }
+                        if (arr.length >= 6) {
+                            try {
+                                timeU = format.parse(arr[5]).getTime() / 1000;
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            continue;
+                        }
+                        pipelined.zadd(new StringBuffer("room:changecla:").append(roomId).toString(), timeU, newClaEname);
+                        System.out.println("room:changecla:" + roomId + ";timeU:" + timeU + ";cla:" + newClaEname);
+                    }
+                    pipelined.sync();
+                    pipelined.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    if (null != jedis) {
+                        jedis.close();
+                    }
+                }
             });
             ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
         });
