@@ -150,10 +150,10 @@ public class UserWatchDuration {
                 }
                 return new Tuple2<String, String>(stream, uid + "-" + timeU + ":" + flag);
             } catch (NumberFormatException ne) {
-                logger.error("mapToPair,timeU parseLong error,l:" + l);
+//                logger.error("mapToPair,timeU parseLong error,l:" + l);
                 return new Tuple2<String, String>(null, "-");
             } catch (Exception e) {
-                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
+//                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
                 return new Tuple2<String, String>(null, "-");
             }
         }).filter(f -> {
@@ -244,7 +244,7 @@ public class UserWatchDuration {
                 String[] uidTimeuArr = kv._2.split(",");
                 Tuple[] tuples = jedis.zrevrangeWithScores(new StringBuffer("room:changecla:").append(roomId).toString(), 0, -1).toArray(new Tuple[]{});
                 if (tuples.length == 0) {
-                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到");
+//                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到");
                 } else {
                     List<String> catesValue = catesBroadcast.value();
                     for (int i = 0; i < uidTimeuArr.length; i++) {
