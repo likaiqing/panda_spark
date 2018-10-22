@@ -26,9 +26,11 @@ public class App {
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         Producer<String, String> producer = new KafkaProducer<>(props);
         try {
-            RecordMetadata metadata = producer.send(new ProducerRecord<String, String>("pcgameq_panda_watch_time_sign", "123435-5")).get();
-            String res = metadata.topic() + ";partition:" + metadata.partition() + ";offset:" + metadata.offset();
-            System.out.println(res);
+            for (int i = 0; i < 10; i++) {
+                RecordMetadata metadata = producer.send(new ProducerRecord<String, String>("pcgameq_panda_watch_time_sign", "123435-5")).get();
+                String res = metadata.topic() + ";partition:" + metadata.partition() + ";offset:" + metadata.offset();
+                System.out.println(res);
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {

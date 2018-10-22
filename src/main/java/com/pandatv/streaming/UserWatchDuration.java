@@ -40,10 +40,12 @@ public class UserWatchDuration {
 //    private static String redisPwd = "";
 //    private static int redisPort = 6379;
 
+    private static String groupId = "duration_stream";
+    private static String bootServers = "10.131.6.79:9092";
+
     private static String redisHost = "10.131.11.151";
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
     private static int redisPort = 6974;
-    private static String[] changeClaStreamTopicsArr = new String[]{};
 
     public static void main(String[] args) throws InterruptedException {
         if (args.length < 1) {
@@ -54,6 +56,7 @@ public class UserWatchDuration {
         Map<String, String> map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
 
         SparkConf conf = new SparkConf().setAppName("UserWatchDuration");
+        conf.set("spark.streaming.kafka.maxRatePerPartition", "300");
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(10));
 
         JavaSparkContext context = ssc.sparkContext();
@@ -65,12 +68,26 @@ public class UserWatchDuration {
         Broadcast<List<String>> catesBroadcast = context.broadcast(Arrays.asList(map.getOrDefault("cates", "default").split("-")));
 
         Broadcast<Integer> dayMinutesBroadcast = context.broadcast(Integer.parseInt(map.getOrDefault("dayMinutes", "180")));
+
+        if (map.containsKey("groupId")) {
+            groupId = map.get("groupId");
+        }
+        if (map.containsKey("bootServers")) {
+            groupId = map.get("bootServers");
+        }
+
         /**
          * 广播redis相关变量
          */
-        redisHost = map.getOrDefault("redisHost", "10.131.11.151");
-        redisPwd = map.getOrDefault("redisPwd", "Hdx03DqyIwOSrEDU");
-        redisPort = Integer.parseInt(map.getOrDefault("redisPort", "6974"));
+        if (map.containsKey("redisHost")) {
+            redisHost = map.get("redisHost");
+        }
+        if (map.containsKey("redisPwd")) {
+            redisPwd = map.get("redisPwd");
+        }
+        if (map.containsKey("redisPort")) {
+            redisPort = Integer.parseInt(map.get("redisPort"));
+        }
         Broadcast<String> redisHostBroadcast = context.broadcast(redisHost);
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
@@ -94,12 +111,10 @@ public class UserWatchDuration {
         message.map(m -> m.value()).filter(l -> !l.contains("uid=0") && !l.contains("uid=-")).mapToPair(l -> {
             try {
                 String flag = "p";//player_online
-                if (l.contains("client_punch.gif")) {
-                    flag = "c";
-                }
                 int timeIndex = l.indexOf("[");
                 String timeStr = l.substring(timeIndex + 1, l.indexOf("]", timeIndex));
                 long timeU = new SimpleDateFormat("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH).parse(timeStr).getTime() / 1000;
+                long l1 = Long.parseLong(String.valueOf(timeU));
                 int uidIndex = l.indexOf("uid=");
                 int uidEndIndex1 = l.indexOf("&", uidIndex);
                 int uidEndIndex2 = l.indexOf(" ", uidIndex);
@@ -110,8 +125,22 @@ public class UserWatchDuration {
                     uidEndIndex = uidEndIndex1;
                 }
                 String uid = l.substring(uidIndex + 4, uidEndIndex);
+                if (l.contains("client_punch.gif")) {
+                    flag = "c";
+                    int roomIdIndex = l.indexOf("rid=");
+                    int roomIdIndex1 = l.indexOf("&", roomIdIndex);
+                    int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
+                    int roomIdEndIndex = 0;
+                    if (roomIdIndex1 < 0) {
+                        roomIdEndIndex = roomIdIndex2;
+                    } else {
+                        roomIdEndIndex = roomIdIndex1;
+                    }
+                    String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
+                    return new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag);
+                }
                 int uIndex = l.indexOf("u=");
-                String url = l.substring(uIndex + 2, l.indexOf(".flv", uIndex));
+                String url = l.substring(uIndex + 2, l.indexOf(".flv", uIndex));//此处不适合client_online
                 String urlPart = url.split("live_panda%2F")[1];
                 String stream = null;
                 if (urlPart.contains("_")) {
@@ -119,13 +148,16 @@ public class UserWatchDuration {
                 } else {
                     stream = urlPart;
                 }
-                return new Tuple2<String, String>(stream, uid + "-" + timeU + flag);
+                return new Tuple2<String, String>(stream, uid + "-" + timeU + ":" + flag);
+            } catch (NumberFormatException ne) {
+                logger.error("mapToPair,timeU parseLong error,l:" + l);
+                return new Tuple2<String, String>(null, "-");
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
                 return new Tuple2<String, String>(null, "-");
             }
         }).filter(f -> {
-            return f._1 != null;
+            return StringUtils.isNotEmpty(f._1);
         }).filter(f -> {
             boolean result = false;
             long timeU = 0;
@@ -133,11 +165,12 @@ public class UserWatchDuration {
                 timeU = Long.parseLong(f._2.split("-")[1].substring(0, 10));
                 result = timeU >= startTimeUBroadcast.value() && timeU <= endTimeUBroadcast.value();
             } catch (StringIndexOutOfBoundsException se) {
-//                se.printStackTrace();
-                logger.error("超出下标,f._1:" + f._1 + ";f._2:" + f._2);
-                System.out.println("超出下标,f._1:" + f._1 + ";f._2:" + f._2);
+//                logger.error("mapToPair,stream:" + f._1 + ";uid-timeU:flag-->" + (f._2));
+//                logger.error("filter StringIndexOutOfBoundsException," + se.getMessage() + ";f._2:" + f._2);
+            } catch (NumberFormatException ne) {
+//                logger.error("filter NumberFormatException," + ne.getMessage() + ";f._2:" + f._2);
             } catch (Exception e) {
-                e.printStackTrace();
+//                logger.error("filter Exception," + e.getMessage() + ";f._2:" + f._2);
             }
             return result;
         }).reduceByKey((a, b) ->/*按stream将{uid}-{timeU}{flag}变成多个按逗号分隔*/ new StringBuffer(a).append(",").append(b).toString()).mapPartitionsToPair(kv -> {
@@ -157,6 +190,10 @@ public class UserWatchDuration {
                 while (kv.hasNext()) {
                     Tuple2<String, String> next = kv.next();
                     String stream = next._1;
+                    if (next._2.contains("c")) {//是client_online
+                        res.add(new Tuple2<String, String>(stream, next._2));
+                        continue;
+                    }
                     streamMap.put(stream, next._2);
 //                if (streamRoomIdMapValue.containsKey(stream)) {
 //                    res.add(new Tuple2<String, String>(streamRoomIdMapValue.get(stream), next._2));
@@ -178,13 +215,13 @@ public class UserWatchDuration {
                     String stream = streams.get(i);
                     String roomId = roomIds.get(i);
                     if (StringUtils.isEmpty(roomId)) {
-                        logger.warn("stream:" + stream + ";对应的roomId:" + roomId);
+//                        logger.warn("stream:" + stream + ";对应的roomId:" + roomId);
                         continue;
                     }
                     res.add(new Tuple2<String, String>(roomId, streamMap.get(stream)));
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+//                logger.error("mapPartitionsToPair," + e.getMessage());
             } finally {
                 if (null != jedis) {
                     jedis.close();
@@ -214,6 +251,7 @@ public class UserWatchDuration {
                         String uidTime = uidTimeuArr[i];
                         String[] arr = uidTime.split("-");
                         String uid = arr[0];
+                        Integer.parseInt(uid);
                         long logTimeU = Long.parseLong(arr[1].substring(0, 10));
                         String cate = null;
                         for (int j = 0; j < tuples.length; j++) {
@@ -237,11 +275,10 @@ public class UserWatchDuration {
                     }
                 }
             } catch (StringIndexOutOfBoundsException se) {
-                se.printStackTrace();
-                logger.error("超出下标,kv._1:" + kv._1 + ";f._2:" + kv._2);
-                System.out.println("超出下标,kv._1:" + kv._1 + ";f._2:" + kv._2);
+//                logger.error("flatMapToPair," + se.getMessage() + ";kv._2:" + kv._2);
             } catch (Exception e) {
-                e.printStackTrace();
+//                logger.error("flatMapToPair," + e.getMessage() + ";kv._2:" + kv._2);
+//                logger.error(e.getMessage());
             } finally {
                 if (null != jedis) {
                     jedis.close();
@@ -266,7 +303,7 @@ public class UserWatchDuration {
                         Iterator<Long> iterator = next._2.iterator();
                         SimpleDateFormat dayFormat = new SimpleDateFormat("yyyyMMdd");
                         while (iterator.hasNext()) {
-                            Long next1 = iterator.next();
+                            Long next1 = iterator.next();//timeU
                             String day = dayFormat.format(new Date(next1 * 1000l));
                             String key = new StringBuffer(projectBroadcast.value()).append(":user:dur:pf:").append(uid).append(":").append(day).toString();
                             keys.add(key);
@@ -283,7 +320,7 @@ public class UserWatchDuration {
                             String[] keySplit = key.split(":");
                             String uid = keySplit[keySplit.length - 2];
                             String userSingDaysKey = new StringBuffer(projectBroadcast.value()).append(":user:singin:days:").append(uid).toString();
-                            Long sadd = jedis.sadd(userSingDaysKey, keySplit[keySplit.length - 2]);//{project}:user:singin:days:{uid}-->{day}每个用户签到的日期set
+                            Long sadd = jedis.sadd(userSingDaysKey, keySplit[keySplit.length - 1]);//{project}:user:singin:days:{uid}-->{day}每个用户签到的日期set
                             if (sadd > 0) {//是新日期
                                 Long scard = jedis.scard(userSingDaysKey);
                                 if (null == producer) {
@@ -292,6 +329,7 @@ public class UserWatchDuration {
                                 if (null == mapper) {
                                     mapper = new ObjectMapper();
                                 }
+                                logger.info("sadd>0,scard:" + scard + ";uid:" + uid);
                                 if (scard == 1 || scard == 5 || scard == 10 || scard == 20 || scard == 30) {
                                     HashMap<Object, Object> sendMap = Maps.newHashMap();
                                     sendMap.put("uid", uid);
@@ -313,7 +351,7 @@ public class UserWatchDuration {
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+//                    logger.error("foreachRDD:" + e.getMessage());
                 } finally {
                     if (null != jedis) {
                         jedis.close();
@@ -322,82 +360,8 @@ public class UserWatchDuration {
             });
         });
 
-//        changeClaStreamTopicsArr = map.getOrDefault("changeClaStreamTopics", "panda_realtime_panda_classify_stream").split("-");
-//        JavaInputDStream<ConsumerRecord<Object, Object>> changeClaStream = getChangeClaStream(ssc);
-//        changeClaStream.foreachRDD(rdd -> {
-//            OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-//            rdd.map(r -> r.value()).foreachPartition(par -> {
-//                OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
-//                if (o.fromOffset() != o.untilOffset()) {
-//                    System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
-//                }
-//                Jedis jedis = null;
-//                try {
-//                    jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
-//                    if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
-//                        jedis.auth(redisPwdBroadcast.value());
-//                    }
-//                    Pipeline pipelined = jedis.pipelined();
-//                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//                    while (par.hasNext()) {
-//                        String next = par.next().toString();
-//                        String[] arr = next.split("\t");
-//                        String roomId = null;
-//                        String newClaEname = null;
-//                        long timeU = 0;
-//                        if (arr.length >= 1) {
-//                            roomId = arr[0];
-//                        } else {
-//                            continue;
-//                        }
-//                        if (arr.length >= 4) {
-//                            newClaEname = arr[3];
-//                        } else {
-//                            continue;
-//                        }
-//                        if (arr.length >= 6) {
-//                            try {
-//                                timeU = format.parse(arr[5]).getTime() / 1000;
-//                            } catch (ParseException e) {
-//                                e.printStackTrace();
-//                            }
-//                        } else {
-//                            continue;
-//                        }
-//                        pipelined.zadd(new StringBuffer("room:changecla:").append(roomId).toString(), timeU, newClaEname);
-//                        System.out.println("room:changecla:" + roomId + ";timeU:" + timeU + ";cla:" + newClaEname);
-//                    }
-//                    pipelined.sync();
-//                    pipelined.close();
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                } finally {
-//                    if (null != jedis) {
-//                        jedis.close();
-//                    }
-//                }
-//            });
-//            ((CanCommitOffsets) changeClaStream.inputDStream()).commitAsync(offsetRanges);
-//        });
-
         ssc.start();
         ssc.awaitTermination();
-    }
-
-    private static JavaInputDStream<ConsumerRecord<Object, Object>> getChangeClaStream(JavaStreamingContext ssc) {
-        Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put("bootstrap.servers", "10.131.6.79:9092");
-        kafkaParams.put("key.deserializer", StringDeserializer.class);
-        kafkaParams.put("value.deserializer", StringDeserializer.class);
-        kafkaParams.put("group.id", "streaming_changecate");
-        kafkaParams.put("auto.offset.reset", "latest");
-        kafkaParams.put("enable.auto.commit", false);
-
-        return KafkaUtils.createDirectStream(
-                ssc,
-                LocationStrategies.PreferConsistent(),
-                ConsumerStrategies.Subscribe(Arrays.asList(changeClaStreamTopicsArr), kafkaParams));
-
     }
 
     private static Producer<String, String> createProducer() {
@@ -410,7 +374,7 @@ public class UserWatchDuration {
         props.put("batch.size", 5);
         props.put("linger.ms", 1);
         props.put("buffer.memory", 3554432);
-        props.put("enable.idempotence", true);//幂等性，retries不再设置，默认int最大值
+//        props.put("enable.idempotence", true);//幂等性，retries不再设置，默认int最大值，版本必须0.11以后的，项目是0.10，因此不支持
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         Producer<String, String> producer = new KafkaProducer<>(props);
@@ -419,10 +383,10 @@ public class UserWatchDuration {
 
     private static JavaInputDStream<ConsumerRecord<String, String>> initMessage(JavaStreamingContext ssc, String[] args) {
         Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put("bootstrap.servers", "10.131.6.79:9092");
+        kafkaParams.put("bootstrap.servers", bootServers);
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", StringDeserializer.class);
-        kafkaParams.put("group.id", "streaming_test");
+        kafkaParams.put("group.id", groupId);
         kafkaParams.put("auto.offset.reset", "latest");
         //batch duration大于30秒，需设置以下两个参数
 //        kafkaParams.put("heartbeat.interval.ms", "130000");//小于session.timeout.ms，最后高于1/3

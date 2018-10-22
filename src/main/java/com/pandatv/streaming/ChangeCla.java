@@ -74,14 +74,14 @@ public class ChangeCla {
                 ConsumerStrategies.Subscribe(Arrays.asList(topics), kafkaParams));
 
         message.foreachRDD(rdd -> {
-            OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-            rdd.map(r -> r.value()).foreachPartition(par -> {
-                OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
-                if (o.fromOffset() != o.untilOffset()) {
-                    System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
-                }
-                Jedis jedis = null;
-                try {
+            try {
+                OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+                rdd.map(r -> r.value()).foreachPartition(par -> {
+                    OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
+//                if (o.fromOffset() != o.untilOffset()) {
+//                    System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
+//                }
+                    Jedis jedis = null;
                     jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
                     if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
                         jedis.auth(redisPwdBroadcast.value());
@@ -114,19 +114,16 @@ public class ChangeCla {
                             continue;
                         }
                         pipelined.zadd(new StringBuffer("room:changecla:").append(roomId).toString(), timeU, newClaEname);
-                        System.out.println("room:changecla:" + roomId + ";timeU:" + timeU + ";cla:" + newClaEname);
                     }
                     pipelined.sync();
                     pipelined.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    if (null != jedis) {
-                        jedis.close();
-                    }
-                }
-            });
-            ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
+                });
+                ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+
+            }
         });
         ssc.start();
         ssc.awaitTermination();
