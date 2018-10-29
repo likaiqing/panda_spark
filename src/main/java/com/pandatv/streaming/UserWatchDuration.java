@@ -22,6 +22,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.ConsumerStrategies;
 import org.apache.spark.streaming.kafka010.KafkaUtils;
 import org.apache.spark.streaming.kafka010.LocationStrategies;
+import org.apache.spark.util.LongAccumulator;
 import redis.clients.jedis.*;
 import scala.Tuple2;
 
@@ -60,7 +61,7 @@ public class UserWatchDuration {
         Map<String, String> map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
 
         SparkConf conf = new SparkConf().setAppName("UserWatchDuration");
-        conf.set("spark.streaming.kafka.maxRatePerPartition", "300");
+        conf.set("spark.streaming.kafka.maxRatePerPartition", "1500");
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(10));
 
         JavaSparkContext context = ssc.sparkContext();

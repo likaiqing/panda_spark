@@ -4,6 +4,7 @@
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/streaming/UserChangeInfo.java
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/streaming/ChangeCla.java
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/bean/GiftRecord.java
+/Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/streaming/OffsetTest.java
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/streaming/RankGift.java
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/App.java
 /Users/likaiqing/space/panda/panda_spark/src/main/java/com/pandatv/tools/RedisClient.java

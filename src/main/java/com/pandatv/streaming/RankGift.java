@@ -267,13 +267,17 @@ public class RankGift {
         if (rankProject.getFlag() == 1 && !jedis.sismember("hostpool:" + rankProject.getProject(), qid)) {//报名或者提供主播列表方式
             return;
         }
-        /**
-         * 只有分组统计的情况下，才使用广播变量里的qids和anchor2GroupMap
-         */
-        String group = rankProject.getAnchor2GroupMap().get(qid);
-        if (rankProject.getFlag() == 2 && (!rankProject.getQids().contains(qid) || StringUtils.isEmpty(group))) {
-            return;
+        String group = null;
+        if (rankProject.getFlag() == 2) {
+            if (!jedis.hexists("hostmap:" + rankProject.getProject(), qid)) {
+                return;
+            }
+            group = jedis.hget("hostmap:" + rankProject.getProject(), qid);
+            if (StringUtils.isEmpty(group)) {
+                return;
+            }
         }
+
 
         if (rankProject.isAllRank()) {
             setGift(rankProject, qid, jedis, threadName, total, "anchorAllGift");//设置总礼物榜单
@@ -486,14 +490,6 @@ public class RankGift {
                     }
 
                     int flag = Integer.parseInt(paramMap.get("flag"));
-                    if (flag == 1) {//不需要初始化，实时判断
-//                        rankProject.setQids(jedis.smembers("hostpool:" + key));
-                    } else if (flag == 2) {
-                        //TODO 分组的话，在redis中使用map结构，field:qid,value:group
-                        Map<String, String> qid2GroupMap = jedis.hgetAll("hostmap:" + entry.getKey());
-                        rankProject.setQids(qid2GroupMap.keySet());
-                        rankProject.setAnchor2GroupMap(qid2GroupMap);
-                    }
                     projectsMap.put(key, rankProject);
                 } catch (Exception e) {
                     e.printStackTrace();

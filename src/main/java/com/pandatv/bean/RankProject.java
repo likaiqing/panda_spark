@@ -22,9 +22,9 @@ public class RankProject implements Serializable {
     private boolean daySpecificRank;
     private boolean weekSpecificRank;
     private int flag;//0:开播有记录即统计，1:报名方式，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
-    private Set<String> qids = new HashSet<>();
+//    private Set<String> qids = new HashSet<>();
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
-    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
+//    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
 
 
     public boolean isAllRank() {
@@ -90,22 +90,22 @@ public class RankProject implements Serializable {
     public void setWeekSpecificRank(boolean weekSpecificRank) {
         this.weekSpecificRank = weekSpecificRank;
     }
-
-    public Map<String, String> getAnchor2GroupMap() {
-        return anchor2GroupMap;
-    }
-
-    public void setAnchor2GroupMap(Map<String, String> anchor2GroupMap) {
-        this.anchor2GroupMap = anchor2GroupMap;
-    }
-
-    public Set<String> getQids() {
-        return qids;
-    }
-
-    public void setQids(Set<String> qids) {
-        this.qids = qids;
-    }
+//
+//    public Map<String, String> getAnchor2GroupMap() {
+//        return anchor2GroupMap;
+//    }
+//
+//    public void setAnchor2GroupMap(Map<String, String> anchor2GroupMap) {
+//        this.anchor2GroupMap = anchor2GroupMap;
+//    }
+//
+//    public Set<String> getQids() {
+//        return qids;
+//    }
+//
+//    public void setQids(Set<String> qids) {
+//        this.qids = qids;
+//    }
 
     public int getFlag() {
         return flag;
@@ -174,9 +174,9 @@ public class RankProject implements Serializable {
                 flag == that.flag &&
                 Objects.equals(project, that.project) &&
                 Objects.equals(cates, that.cates) &&
-                Objects.equals(giftIds, that.giftIds) &&
-                Objects.equals(qids, that.qids) &&
-                Objects.equals(anchor2GroupMap, that.anchor2GroupMap);
+                Objects.equals(giftIds, that.giftIds);
+//                Objects.equals(qids, that.qids) &&
+//                Objects.equals(anchor2GroupMap, that.anchor2GroupMap);
     }
 
     @Override
@@ -204,8 +204,8 @@ public class RankProject implements Serializable {
         set1.add("set1");
         HashSet<String> set2 = new HashSet<>();
         set2.add("set1");
-        rank1.setQids(set1);
-        rank2.setQids(set2);
+//        rank1.setQids(set1);
+//        rank2.setQids(set2);
         List<String> cates1 = new ArrayList<>();
         cates1.add("cate");
         List<String> cates2 = new ArrayList<>();
@@ -224,8 +224,8 @@ public class RankProject implements Serializable {
         anchor2GroupMap1.put("qid1", "qid1");
         Map<String, String> anchor2GroupMap2 = new HashMap<>();
         anchor2GroupMap2.put("qid1", "qid1");
-        rank1.setAnchor2GroupMap(anchor2GroupMap1);
-        rank2.setAnchor2GroupMap(anchor2GroupMap2);
+//        rank1.setAnchor2GroupMap(anchor2GroupMap1);
+//        rank2.setAnchor2GroupMap(anchor2GroupMap2);
         boolean equals = rank1.equals(rank2);
         System.out.println(equals);
     }
