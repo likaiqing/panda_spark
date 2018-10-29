@@ -40,8 +40,12 @@ public class UserWatchDuration {
 //    private static String redisPwd = "";
 //    private static int redisPort = 6379;
 
-    private static String groupId = "duration_stream";
+    private static String groupId = "duration_stream_online";
     private static String bootServers = "10.131.6.79:9092";
+
+    //目标kafka
+    private static String targetBootServers = "kafkabiz2v.infra.bjtb.pdtv.it:9092,kafkabiz3v.infra.bjtb.pdtv.it:9092,kafkabiz4v.infra.bjtb.pdtv.it:9092,kafkabiz5v.infra.bjtb.pdtv.it:9092";
+
 
     private static String redisHost = "10.131.11.151";
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
@@ -73,7 +77,7 @@ public class UserWatchDuration {
             groupId = map.get("groupId");
         }
         if (map.containsKey("bootServers")) {
-            groupId = map.get("bootServers");
+            bootServers = map.get("bootServers");
         }
 
         /**
@@ -343,7 +347,7 @@ public class UserWatchDuration {
                                     metaMap.put("days", scard);
                                     String metaJson = mapper.writeValueAsString(metaMap);
                                     jedis.hset(new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString(), new StringBuffer(uid).append(":").append(new Date().getTime()).toString(), metaJson);
-                                    System.out.println(new StringBuffer("metaJson:").append(metaJson).toString());
+                                    System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("metaJson:").append(metaJson).toString());
 
                                 }
 
@@ -351,7 +355,7 @@ public class UserWatchDuration {
                         }
                     }
                 } catch (Exception e) {
-//                    logger.error("foreachRDD:" + e.getMessage());
+                    logger.error("foreachRDD:" + e.getMessage());
                 } finally {
                     if (null != jedis) {
                         jedis.close();
@@ -367,7 +371,7 @@ public class UserWatchDuration {
     private static Producer<String, String> createProducer() {
         //spark.streaming.kafka.maxRatePerPartition
         Properties props = new Properties();
-        props.put("bootstrap.servers", "t10v.infra.bjtb.pdtv.it:9092");
+        props.put("bootstrap.servers", targetBootServers);
         props.put("acks", "all");
 //        props.put("retries", 0);
 //        props.put("transactional.id", transactionalId);
@@ -387,7 +391,7 @@ public class UserWatchDuration {
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", StringDeserializer.class);
         kafkaParams.put("group.id", groupId);
-        kafkaParams.put("auto.offset.reset", "latest");
+        kafkaParams.put("auto.offset.reset", "earliest");
         //batch duration大于30秒，需设置以下两个参数
 //        kafkaParams.put("heartbeat.interval.ms", "130000");//小于session.timeout.ms，最后高于1/3
 //        kafkaParams.put("session.timeout.ms", "300000");//范围group.min.session.timeout.ms(6000)与group.max.session.timeout.ms(30000)之间

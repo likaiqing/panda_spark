@@ -19,7 +19,7 @@ public class RedisClient implements Serializable {
 
     static {
         config = new GenericObjectPoolConfig();
-        config.setMaxTotal(100);//
+        config.setMaxTotal(500);//
         config.setMinIdle(1);
     }
 
@@ -31,16 +31,21 @@ public class RedisClient implements Serializable {
         this.host = host;
         Runtime.getRuntime().addShutdownHook(new CleanWorkThread());
         if (null == jedisPool) {
-
+            synchronized (RedisClient.class) {
+                jedisPool = new JedisPool(config, host, port);
+            }
         }
-        jedisPool = new JedisPool(config, host, port);
     }
 
     public RedisClient(String host, int port, String pwd) {
         this.host = host;
         this.pwd = pwd;
         Runtime.getRuntime().addShutdownHook(new CleanWorkThread());
-        jedisPool = new JedisPool(config, host, port);
+        if (null == jedisPool) {
+            synchronized (RedisClient.class) {
+                jedisPool = new JedisPool(config, host, port);
+            }
+        }
     }
 
     static class CleanWorkThread extends Thread {
