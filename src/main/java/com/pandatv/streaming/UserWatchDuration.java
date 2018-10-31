@@ -22,7 +22,6 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.ConsumerStrategies;
 import org.apache.spark.streaming.kafka010.KafkaUtils;
 import org.apache.spark.streaming.kafka010.LocationStrategies;
-import org.apache.spark.util.LongAccumulator;
 import redis.clients.jedis.*;
 import scala.Tuple2;
 
@@ -45,7 +44,12 @@ public class UserWatchDuration {
     private static String bootServers = "10.131.6.79:9092";
 
     //目标kafka
-    private static String targetBootServers = "kafkabiz2v.infra.bjtb.pdtv.it:9092,kafkabiz3v.infra.bjtb.pdtv.it:9092,kafkabiz4v.infra.bjtb.pdtv.it:9092,kafkabiz5v.infra.bjtb.pdtv.it:9092";
+//    10.131.11.17    kafkabiz6v.infra.bjtb.pdtv.it
+//    10.131.11.197   kafkabiz7v.infra.bjtb.pdtv.it
+//    10.131.10.249   kafkabiz8v.infra.bjtb.pdtv.it
+//    10.131.11.65    kafkabiz9v.infra.bjtb.pdtv.it
+//    10.131.10.242   kafkabiz10v.infra.bjtb.pdtv.it
+    private static String targetBootServers = "10.131.10.27:9092";
 
 
     private static String redisHost = "10.131.11.151";
@@ -130,7 +134,7 @@ public class UserWatchDuration {
                     uidEndIndex = uidEndIndex1;
                 }
                 String uid = l.substring(uidIndex + 4, uidEndIndex);
-                if (l.contains("client_punch.gif")) {
+                if (l.contains("GET /client_punch.gif?")) {
                     flag = "c";
                     int roomIdIndex = l.indexOf("rid=");
                     int roomIdIndex1 = l.indexOf("&", roomIdIndex);
@@ -155,10 +159,10 @@ public class UserWatchDuration {
                 }
                 return new Tuple2<String, String>(stream, uid + "-" + timeU + ":" + flag);
             } catch (NumberFormatException ne) {
-//                logger.error("mapToPair,timeU parseLong error,l:" + l);
+                logger.error("mapToPair,timeU parseLong error,l:" + l);
                 return new Tuple2<String, String>(null, "-");
             } catch (Exception e) {
-//                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
+                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
                 return new Tuple2<String, String>(null, "-");
             }
         }).filter(f -> {
@@ -195,7 +199,7 @@ public class UserWatchDuration {
                 while (kv.hasNext()) {
                     Tuple2<String, String> next = kv.next();
                     String stream = next._1;
-                    if (next._2.contains("c")) {//是client_online
+                    if (next._2.contains(":c")) {//是client_online
                         res.add(new Tuple2<String, String>(stream, next._2));
                         continue;
                     }
@@ -280,9 +284,10 @@ public class UserWatchDuration {
                     }
                 }
             } catch (StringIndexOutOfBoundsException se) {
-//                logger.error("flatMapToPair," + se.getMessage() + ";kv._2:" + kv._2);
+//                logger.error(se.getMessage() + ";flatMapToPair,StringIndexOutOfBoundsException," + se.getMessage() + ";kv._2:" + kv._2);
             } catch (Exception e) {
-//                logger.error("flatMapToPair," + e.getMessage() + ";kv._2:" + kv._2);
+//                e.printStackTrace();
+//                logger.error(e.getMessage() + "flatMapToPair,Exception," + e.getMessage() + ";kv._2:" + kv._2);
 //                logger.error(e.getMessage());
             } finally {
                 if (null != jedis) {
@@ -293,6 +298,7 @@ public class UserWatchDuration {
         }).groupByKey().foreachRDD(rdd -> {
             rdd.foreachPartition(it -> {
                 Jedis jedis = null;
+                Producer<String, String> producer = null;
                 String redisPwd = redisPwdBroadcast.value();
                 try {
                     jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
@@ -317,7 +323,7 @@ public class UserWatchDuration {
                     }
                     pipelined.sync();
                     pipelined.close();
-                    Producer<String, String> producer = null;
+
                     ObjectMapper mapper = null;
                     for (String key : keys) {
                         long pfcount = jedis.pfcount(key);
@@ -360,6 +366,9 @@ public class UserWatchDuration {
                 } finally {
                     if (null != jedis) {
                         jedis.close();
+                    }
+                    if (null != producer) {
+                        producer.close();
                     }
                 }
             });
