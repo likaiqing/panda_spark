@@ -3,9 +3,18 @@ package com.pandatv;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.Tuple;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author: likaiqing
@@ -34,9 +43,40 @@ public class Test {
     }
 
     @org.junit.Test
-    public void test3() throws IOException {
+    public void test3() throws IOException, InterruptedException {
+        ExecutorService service = Executors.newFixedThreadPool(100);
+        List<Object> list = new ArrayList<>();
+        for (int j = 0; j < 100; j++) {
+            list.add(service.submit(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    Jedis jedis = new Jedis("localhost", 6379);
+                    Pipeline pipelined = jedis.pipelined();
+                    for (int i = 0; i < 10000; i++) {
+                        pipelined.zincrby("zincrby_test", 1, "test6");
+                    }
+                    pipelined.sync();
+                    try {
+                        pipelined.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    jedis.close();
+                    return true;
+                }
+            }));
+        }
+        service.shutdown();
+        boolean b = service.awaitTermination(20, TimeUnit.SECONDS);
+        if (b) {
+            System.out.println(b);
+        }
+        System.out.println(list.size());
         Jedis jedis = new Jedis("localhost", 6379);
-
+        Set<Tuple> tuples = jedis.zrangeWithScores("zincrby_test", 0, 0);
+        for (Tuple tuple : tuples) {
+            System.out.println(tuple.getElement() + ":" + tuple.getScore());
+        }
         jedis.close();
 
     }

@@ -21,6 +21,7 @@ import org.apache.spark.streaming.kafka010.*;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,17 +38,17 @@ import java.util.*;
  **/
 public class RankGift {
 
-    private static final Logger logger = LogManager.getLogger(UserWatchDuration.class);
+    private static final Logger logger = LogManager.getLogger(RankGift.class);
 
     private static String projectKey = "rank:gift:projectMap";
 
     //测试环境
-//    private static String topics = "pcgameq_panda_gift_donate";
-//    private static String groupId = "gift_rank_stream_test";
-//    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";//测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
-//    private static String redisHost = "10.131.7.48";
-//    private static String redisPwd = "";
-//    private static int redisPort = 6099;
+    private static String topics = "pcgameq_panda_gift_donate";
+    private static String groupId = "gift_rank_stream_test";
+    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";//测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
+    private static String redisHost = "10.131.7.48";
+    private static String redisPwd = "";
+    private static int redisPort = 6099;
 
     //test ckafka
 //    private static String topics = "panda_present_detail_test_1";
@@ -58,12 +59,12 @@ public class RankGift {
 //    private static int redisPort = 6379;
 
     //线上
-    private static String topics = "pcgameq_panda_gift_donate";
-    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
-    private static String groupId = "gift_rank_stream";
-    private static String redisHost = "10.131.11.151";
-    private static String redisPwd = "Hdx03DqyIwOSrEDU";
-    private static int redisPort = 6974;
+//    private static String topics = "pcgameq_panda_gift_donate";
+//    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
+//    private static String groupId = "gift_rank_stream";
+//    private static String redisHost = "10.131.11.151";
+//    private static String redisPwd = "Hdx03DqyIwOSrEDU";
+//    private static int redisPort = 6974;
 
 
     /**
@@ -105,7 +106,10 @@ public class RankGift {
             try {
                 rdd.map(r -> r.value()).foreachPartition(p -> {
                     ObjectMapper mapper = null;
-                    Jedis jedis = null;
+                    Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
+                    if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
+                        jedis.auth(redisPwdBroadcast.value());
+                    }
                     while (p.hasNext()) {
                         if (null == mapper) {
                             mapper = new ObjectMapper();
@@ -159,33 +163,27 @@ public class RankGift {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);//处理出问题，说明数据有问题，过滤
+            ((CanCommitOffsets) changeMessage.inputDStream()).commitAsync(offsetRanges);//处理出问题，说明数据有问题，过滤
         });
         message.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
             try {
                 Map<String, RankProject> rankProjectMap = getProjectMap();
                 rdd.map(r -> r.value()).foreachPartition(p -> {
-//                    System.out.println("forEachPartition,rankProjectMap:" + rankProjectMap);
                     if (null == rankProjectMap || rankProjectMap.size() == 0) {
                         return;
                     }
                     String threadName = Thread.currentThread().getName();
                     OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
-//                    if (o.fromOffset() != o.untilOffset()) {
-//                        System.out.println(threadName + ";" + o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
-//                    }
-                    Jedis jedis = null;
                     Map<String, String> qidRoomIdMap = new HashMap<>();
                     Set<String> uids = new HashSet<>();
-                    jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
+                    Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
                     if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
                         jedis.auth(redisPwdBroadcast.value());
                     }
                     ObjectMapper mapper = new ObjectMapper();
                     while (p.hasNext()) {
                         String next = p.next();
-//                        System.out.println(next);
                         GiftInfo giftInfo = getGiftInf(next, mapper);
                         if (null == giftInfo) continue;
                         DateTime dateTime = new DateTime(giftInfo.getTimeU() * 1000l);
@@ -231,8 +229,6 @@ public class RankGift {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-
         });
 
         ssc.start();
@@ -250,7 +246,7 @@ public class RankGift {
      */
     private static JavaInputDStream<ConsumerRecord<String, String>> initChangeMessage(JavaStreamingContext ssc, String[] args) {
         Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put("bootstrap.servers", "10.131.10.27:9092");
+        kafkaParams.put("bootstrap.servers", "10.131.12.126:9092");
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", StringDeserializer.class);
         kafkaParams.put("group.id", "zhaomu_user_change_info");
@@ -273,7 +269,7 @@ public class RankGift {
         }
         Map<String, RankProject> projectsMap = new HashMap<>();
         Map<String, String> projectMap = jedis.hgetAll(projectKey);
-        logger.warn("InitPojectsBc run");
+//        logger.warn("InitPojectsBc run");
         for (Map.Entry<String, String> entry : projectMap.entrySet()) {
             try {
                 String key = entry.getKey();
@@ -396,7 +392,7 @@ public class RankGift {
         return giftInfo;
     }
 
-    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, Map<String, String> qidRoomidMap, String qid, String threadName, String day, int week) {
+    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, Map<String, String> qidRoomidMap, String qid, String threadName, String day, int week) throws IOException {
         RankProject rankProject = entry.getValue();
         long startTimeU = rankProject.getStartTimeU();
         long endTimeU = rankProject.getEndTimeU();
@@ -405,6 +401,7 @@ public class RankGift {
         String total = giftInfo.getTotal();
         String roomId = giftInfo.getRoomId();
         String giftId = giftInfo.getGiftId();
+        String uid = giftInfo.getUid();
         if (timeU < startTimeU || timeU > endTimeU) {
             return;
         }
@@ -430,88 +427,90 @@ public class RankGift {
             }
         }
 
-
+        Pipeline pipelined = jedis.pipelined();
         if (rankProject.isAllRank()) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancAlGf");//设置总礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrAlGf");//设置总礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancSpecGf");//设置特殊礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrSpecGf");//设置特殊礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancSpecGf").append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isDayAllRank()) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancDyAlGf" + day);//设置总礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrDyAlGf" + day);//设置总礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isDaySpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancDySpecGf" + day);//设置总礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrDySpecGf" + day);//设置总礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDySpecGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isWeekAllRank()) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancWkAlGf" + week);//设置总礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrWkAlGf" + week);//设置总礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isWeekSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            setGift(rankProject, qid, jedis, threadName, total, "ancWkSpeciGf" + week);//设置总礼物榜单
-            setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrWkSpecGf" + week);//设置总礼物榜单
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkSpecGf").append(week).append(":rank").toString(), Long.parseLong(total), qid);
+            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), Long.parseLong(total), uid);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.getFlag() == 2) {//按分组报名方式
             if (rankProject.isAllRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "AlGf");//设置总礼物榜单
-                setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrGrp" + group + "AlGf");//设置总礼物榜单
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
             if (rankProject.isSpecificRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "SpecGf");//设置总礼物榜单
-                setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrGrp" + group + "SpecGf");//设置总礼物榜单
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "SpecGf").append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
             if (rankProject.isDayAllRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "DyAlGf" + day);//设置总礼物榜单
-                setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrGrp" + group + "DyAlGf" + day);//设置总礼物榜单
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
             if (rankProject.isDaySpecificRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "DySpecGf" + day);
-                setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrGrp" + group + "DySpecGf" + day);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DySpecGf" + day).append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
             if (rankProject.isWeekAllRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "WkAlGf" + week);//设置总礼物榜单
-                setGift(rankProject, qid, jedis, threadName, total, "usrGrp" + group + "WkAlGift" + week);//设置总礼物榜单
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
             if (rankProject.isWeekSpecificRank()) {
-                setGift(rankProject, qid, jedis, threadName, total, "ancGrp" + group + "WkSpecGf" + week);
-                setGift(rankProject, giftInfo.getUid(), jedis, threadName, total, "usrGrp" + group + "WkSpecGf" + week);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Long.parseLong(total), qid);
+                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Long.parseLong(total), uid);
                 qidRoomidMap.put(qid, roomId);
             }
         }
+        pipelined.sync();
+        pipelined.close();
     }
-
-    private static void setGift(RankProject rankProject, String qid, Jedis jedis, String threadName, String total, String giftType) {
-        String key = new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":lock:").append(qid).toString();
-        while (null == jedis.set(key, threadName, "NX", "PX", 1000)) {
-            try {
-                logger.warn("设置key:" + key + ";已经存在，等待50毫秒");
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        long allGift = jedis.hincrBy(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":map").toString(), qid, Long.parseLong(total));
-        String rankKey = new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":rank").toString();
-        jedis.zadd(rankKey, allGift, qid);
-        if (null != jedis.get(key) && jedis.get(key).equals(threadName)) {
-            jedis.del(key);
-        }
-    }
+//
+//    private static void setGift(RankProject rankProject, String qid, Jedis jedis, String threadName, String total, String giftType) {
+//        String key = new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":lock:").append(qid).toString();
+//        while (null == jedis.set(key, threadName, "NX", "PX", 1000)) {
+//            try {
+//                logger.warn("设置key:" + key + ";已经存在，等待50毫秒");
+//                Thread.sleep(50);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        long allGift = jedis.hincrBy(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":map").toString(), qid, Long.parseLong(total));
+//        String rankKey = new StringBuffer("panda:").append(rankProject.getProject()).append(":").append(giftType).append(":rank").toString();
+//        jedis.zadd(rankKey, allGift, qid);
+//        if (null != jedis.get(key) && jedis.get(key).equals(threadName)) {
+//            jedis.del(key);
+//        }
+//    }
 
     private static void initParams(Map<String, String> map) {
         if (map.containsKey("groupId")) {
