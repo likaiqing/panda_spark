@@ -90,22 +90,6 @@ public class RankProject implements Serializable {
     public void setWeekSpecificRank(boolean weekSpecificRank) {
         this.weekSpecificRank = weekSpecificRank;
     }
-//
-//    public Map<String, String> getAnchor2GroupMap() {
-//        return anchor2GroupMap;
-//    }
-//
-//    public void setAnchor2GroupMap(Map<String, String> anchor2GroupMap) {
-//        this.anchor2GroupMap = anchor2GroupMap;
-//    }
-//
-//    public Set<String> getQids() {
-//        return qids;
-//    }
-//
-//    public void setQids(Set<String> qids) {
-//        this.qids = qids;
-//    }
 
     public int getFlag() {
         return flag;
@@ -175,8 +159,6 @@ public class RankProject implements Serializable {
                 Objects.equals(project, that.project) &&
                 Objects.equals(cates, that.cates) &&
                 Objects.equals(giftIds, that.giftIds);
-//                Objects.equals(qids, that.qids) &&
-//                Objects.equals(anchor2GroupMap, that.anchor2GroupMap);
     }
 
     @Override
@@ -187,11 +169,20 @@ public class RankProject implements Serializable {
     @Override
     public String toString() {
         return "RankProject{" +
-                "startTimeU=" + startTimeU +
+                "project='" + project + '\'' +
+                ", startTimeU=" + startTimeU +
                 ", endTimeU=" + endTimeU +
-                ", project='" + project + '\'' +
                 ", cates=" + cates +
                 ", giftIds=" + giftIds +
+                ", allRank=" + allRank +
+                ", specificRank=" + specificRank +
+                ", hourAllRank=" + hourAllRank +
+                ", dayAllRank=" + dayAllRank +
+                ", weekAllRank=" + weekAllRank +
+                ", hourSpecificRank=" + hourSpecificRank +
+                ", daySpecificRank=" + daySpecificRank +
+                ", weekSpecificRank=" + weekSpecificRank +
+                ", flag=" + flag +
                 '}';
     }
 
@@ -204,8 +195,6 @@ public class RankProject implements Serializable {
         set1.add("set1");
         HashSet<String> set2 = new HashSet<>();
         set2.add("set1");
-//        rank1.setQids(set1);
-//        rank2.setQids(set2);
         List<String> cates1 = new ArrayList<>();
         cates1.add("cate");
         List<String> cates2 = new ArrayList<>();
@@ -224,8 +213,6 @@ public class RankProject implements Serializable {
         anchor2GroupMap1.put("qid1", "qid1");
         Map<String, String> anchor2GroupMap2 = new HashMap<>();
         anchor2GroupMap2.put("qid1", "qid1");
-//        rank1.setAnchor2GroupMap(anchor2GroupMap1);
-//        rank2.setAnchor2GroupMap(anchor2GroupMap2);
         boolean equals = rank1.equals(rank2);
         System.out.println(equals);
     }

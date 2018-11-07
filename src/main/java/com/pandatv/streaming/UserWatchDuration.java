@@ -341,22 +341,23 @@ public class UserWatchDuration {
                                     mapper = new ObjectMapper();
                                 }
                                 logger.info("sadd>0,scard:" + scard + ";uid:" + uid);
-                                if (scard == 1 || scard == 5 || scard == 10 || scard == 20 || scard == 30) {
-                                    HashMap<Object, Object> sendMap = Maps.newHashMap();
-                                    sendMap.put("uid", uid);
-                                    sendMap.put("days", scard);
-                                    String value = mapper.writeValueAsString(sendMap);
-                                    RecordMetadata metadata = producer.send(new ProducerRecord<>("pcgameq_panda_watch_time_sign", value)).get();
-                                    HashMap<Object, Object> metaMap = Maps.newHashMap();
-                                    metaMap.put("patition", metadata.partition());
-                                    metaMap.put("offset", metadata.offset());
-                                    metaMap.put("topic", metadata.topic());
-                                    metaMap.put("days", scard);
-                                    String metaJson = mapper.writeValueAsString(metaMap);
-                                    jedis.hset(new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString(), new StringBuffer(uid).append(":").append(new Date().getTime()).toString(), metaJson);
-                                    System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("metaJson:").append(metaJson).toString());
+//                                if (scard == 1 || scard == 5 || scard == 10 || scard == 20 || scard == 30) {
+                                HashMap<Object, Object> sendMap = Maps.newHashMap();
+                                sendMap.put("uid", uid);
+                                sendMap.put("days", scard);
+                                String value = mapper.writeValueAsString(sendMap);
+                                RecordMetadata metadata = producer.send(new ProducerRecord<>("pcgameq_panda_watch_time_sign", value)).get();
+                                HashMap<Object, Object> metaMap = Maps.newHashMap();
+                                metaMap.put("patition", metadata.partition());
+                                metaMap.put("offset", metadata.offset());
+                                metaMap.put("topic", metadata.topic());
+                                metaMap.put("days", scard);
+                                metaMap.put("timeU", new Date().getTime());
+                                String metaJson = mapper.writeValueAsString(metaMap);
+                                jedis.hset(new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString(), new StringBuffer(uid).toString(), metaJson);
+                                System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("metaJson:").append(metaJson).toString());
 
-                                }
+//                                }
 
                             }
                         }
