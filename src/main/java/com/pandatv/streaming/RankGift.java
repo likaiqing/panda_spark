@@ -39,34 +39,31 @@ public class RankGift {
 
     private static final Logger logger = LogManager.getLogger(UserWatchDuration.class);
 
-    //test ckafka
-//    private static String topics = "panda_present_detail_test_1";
-    private static String topics = "pcgameq_panda_gift_donate";
-    private static String groupId = "gift_rank_stream_test";
-    //test ckafka
-//    private static String bootServers = "10.131.6.79:9092";
-
-    //测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
-    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";
-    //线上消费礼物slb地址
-//    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it
-
     private static String projectKey = "rank:gift:projectMap";
 
-    //本地
+    //测试环境
+//    private static String topics = "pcgameq_panda_gift_donate";
+//    private static String groupId = "gift_rank_stream_test";
+//    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";//测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
+//    private static String redisHost = "10.131.7.48";
+//    private static String redisPwd = "";
+//    private static int redisPort = 6099;
+
+    //test ckafka
+//    private static String topics = "panda_present_detail_test_1";
+//    private static String groupId = "gift_rank_stream_test";
+//    private static String bootServers = "10.131.6.79:9092";
 //    private static String redisHost = "localhost";
 //    private static String redisPwd = "";
 //    private static int redisPort = 6379;
-    //测试
-    private static String redisHost = "10.131.7.48";
-    private static String redisPwd = "";
-    private static int redisPort = 6099;
-    //线上
-//    private static String redisHost = "10.131.11.151";
-//    private static String redisPwd = "Hdx03DqyIwOSrEDU";
-//    private static int redisPort = 6974;
 
-    private static int delaySeconds = 60;
+    //线上
+    private static String topics = "pcgameq_panda_gift_donate";
+    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
+    private static String groupId = "gift_rank_stream";
+    private static String redisHost = "10.131.11.151";
+    private static String redisPwd = "Hdx03DqyIwOSrEDU";
+    private static int redisPort = 6974;
 
 
     /**
@@ -532,9 +529,6 @@ public class RankGift {
         }
         if (map.containsKey("redisPort")) {
             redisPort = Integer.parseInt(map.get("redisPort"));
-        }
-        if (map.containsKey("delaySeconds")) {
-            delaySeconds = Integer.parseInt(map.get("delaySeconds"));
         }
         logger.info("groupId:" + groupId);
     }
