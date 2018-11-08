@@ -7,6 +7,7 @@ com/pandatv/streaming/Test.class
 com/pandatv/streaming/RankGift.class
 com/pandatv/streaming/ChangeCla.class
 com/pandatv/streaming/UserWatchDuration.class
+com/pandatv/streaming/Test$BroadcastWrapper.class
 com/pandatv/tools/MysqlPool$1.class
 com/pandatv/streaming/BroadcastTest.class
 com/pandatv/bean/GiftInfo.class

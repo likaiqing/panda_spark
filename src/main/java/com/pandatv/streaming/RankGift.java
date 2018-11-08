@@ -184,6 +184,7 @@ public class RankGift {
                     ObjectMapper mapper = new ObjectMapper();
                     while (p.hasNext()) {
                         String next = p.next();
+                        logger.info("next:" + next);
                         GiftInfo giftInfo = getGiftInf(next, mapper);
                         if (null == giftInfo) continue;
                         DateTime dateTime = new DateTime(giftInfo.getTimeU() * 1000l);
@@ -191,6 +192,7 @@ public class RankGift {
                         int week = dateTime.weekOfWeekyear().get();
                         uids.add(giftInfo.getUid());
                         for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
+                            logger.info("executeSingleProject,project:" + entry.getValue());
                             executeSingleProject(jedis, entry, giftInfo, qidRoomIdMap, giftInfo.getQid(), threadName, day, week);
                         }
                     }
@@ -441,6 +443,7 @@ public class RankGift {
         if (rankProject.isDayAllRank()) {
             pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
             pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
+            logger.info(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString() + ";uid:" + uid + ";total:" + total);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isDaySpecificRank() && rankProject.getGiftIds().contains(giftId)) {
@@ -451,6 +454,7 @@ public class RankGift {
         if (rankProject.isWeekAllRank()) {
             pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), qid);
             pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), uid);
+            logger.info(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString() + ";uid:" + uid + ";total:" + total);
             qidRoomidMap.put(qid, roomId);
         }
         if (rankProject.isWeekSpecificRank() && rankProject.getGiftIds().contains(giftId)) {

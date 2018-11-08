@@ -1,10 +1,12 @@
 package com.pandatv.streaming;
 
+import com.pandatv.bean.RankProject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.TaskContext;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -41,22 +43,31 @@ public class Test {
                 ssc,
                 LocationStrategies.PreferConsistent(),
                 ConsumerStrategies.<String, String>Assign(list, kafkaParams));//新加分区，如果没有设置，将会消费不到
-
-
+        RankProject rankProject = new RankProject();
+        rankProject.setProject("test");
+        rankProject.setFlag(0);
+        Broadcast<RankProject> broadcast = ssc.sparkContext().broadcast(rankProject);
         message.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
             rdd.map(r -> r.value()).foreachPartition(p -> {
+                System.out.println(broadcast.value());
                 OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
                 if (o.fromOffset() != o.untilOffset()) {
                     System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset() + ";");
-                }
-                while (p.hasNext()) {
-                    System.out.println(p.next());
                 }
             });
         });
 
         ssc.start();
         ssc.awaitTermination();
+    }
+
+    class BroadcastWrapper {
+        private JavaStreamingContext ssc;
+        private RankProject project;
+
+        BroadcastWrapper(JavaStreamingContext ssc, RankProject project) {
+
+        }
     }
 }
