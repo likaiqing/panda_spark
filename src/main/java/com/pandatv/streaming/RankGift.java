@@ -43,12 +43,12 @@ public class RankGift {
     private static String projectKey = "rank:gift:projectMap";
 
     //测试环境
-    private static String topics = "pcgameq_panda_gift_donate";
-    private static String groupId = "gift_rank_stream_test";
-    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";//测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
-    private static String redisHost = "10.131.7.48";
-    private static String redisPwd = "";
-    private static int redisPort = 6099;
+//    private static String topics = "pcgameq_panda_gift_donate";
+//    private static String groupId = "gift_rank_stream_test";
+//    private static String bootServers = "10.131.7.20:9092,10.131.7.31:9092,10.131.7.25:9092";//测试环境消费礼物地址(t10-12v.infra.bjtb.pdtv.it) KM:http://t12v.infra.bjtb.pdtv.it:9090/clusters/beta_bjtb
+//    private static String redisHost = "10.131.7.48";
+//    private static String redisPwd = "";
+//    private static int redisPort = 6099;
 
     //test ckafka
 //    private static String topics = "panda_present_detail_test_1";
@@ -59,12 +59,12 @@ public class RankGift {
 //    private static int redisPort = 6379;
 
     //线上
-//    private static String topics = "pcgameq_panda_gift_donate";
-//    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
-//    private static String groupId = "gift_rank_stream";
-//    private static String redisHost = "10.131.11.151";
-//    private static String redisPwd = "Hdx03DqyIwOSrEDU";
-//    private static int redisPort = 6974;
+    private static String topics = "pcgameq_panda_gift_donate";
+    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
+    private static String groupId = "gift_rank_stream";
+    private static String redisHost = "10.131.11.151";
+    private static String redisPwd = "Hdx03DqyIwOSrEDU";
+    private static int redisPort = 6974;
 
 
     /**
@@ -84,7 +84,7 @@ public class RankGift {
             initParams(map);
         }
         SparkConf conf = new SparkConf().setAppName("rank_gift");
-        conf.set("spark.streaming.kafka.maxRatePerPartition", "30");
+        conf.set("spark.streaming.kafka.maxRatePerPartition", "100");
         /**
          * //TODO 使用checkpoint
          */
@@ -175,6 +175,9 @@ public class RankGift {
                     }
                     String threadName = Thread.currentThread().getName();
                     OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
+//                    if (o.fromOffset() != o.untilOffset()) {
+//                        System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
+//                    }
                     Map<String, String> qidRoomIdMap = new HashMap<>();
                     Set<String> uids = new HashSet<>();
                     Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
@@ -241,6 +244,7 @@ public class RankGift {
     /**
      * pcgameq_villa_change_roomid修改房间号
      * pcgameq_ruc_profile_change修改昵称和头像
+     * KafkaManager  http://kafkabiz3v.infra.bjtb.pdtv.it:9090
      *
      * @param ssc
      * @param args
