@@ -189,7 +189,7 @@ public class RankGift {
                         String next = p.next();
                         logger.info("next:" + next);
                         GiftInfo giftInfo = getGiftInf(next, mapper);
-                        if (null == giftInfo) continue;
+                        if (null == giftInfo || Integer.parseInt(giftInfo.getTotal()) <= 0) continue;
                         DateTime dateTime = new DateTime(giftInfo.getTimeU() * 1000l);
                         String day = DateTimeFormat.forPattern("yyyyMMdd").print(dateTime);
                         int week = dateTime.weekOfWeekyear().get();
