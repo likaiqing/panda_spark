@@ -22,7 +22,9 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.ConsumerStrategies;
 import org.apache.spark.streaming.kafka010.KafkaUtils;
 import org.apache.spark.streaming.kafka010.LocationStrategies;
-import redis.clients.jedis.*;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.Tuple;
 import scala.Tuple2;
 
 import java.text.SimpleDateFormat;
@@ -159,10 +161,10 @@ public class UserWatchDuration {
                 }
                 return new Tuple2<String, String>(stream, uid + "-" + timeU + ":" + flag);
             } catch (NumberFormatException ne) {
-                logger.error("mapToPair,timeU parseLong error,l:" + l);
+//                logger.error("mapToPair,timeU parseLong error,l:" + l);
                 return new Tuple2<String, String>(null, "-");
             } catch (Exception e) {
-                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
+//                logger.error("mapToPair exception," + e.getMessage() + ",l:" + l);
                 return new Tuple2<String, String>(null, "-");
             }
         }).filter(f -> {
@@ -355,7 +357,7 @@ public class UserWatchDuration {
                                 metaMap.put("timeU", new Date().getTime());
                                 String metaJson = mapper.writeValueAsString(metaMap);
                                 jedis.hset(new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString(), new StringBuffer(uid).toString(), metaJson);
-                                System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("metaJson:").append(metaJson).toString());
+//                                System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append(";value:").append(value).append(";metaJson:").append(metaJson).toString());
 
 //                                }
 
