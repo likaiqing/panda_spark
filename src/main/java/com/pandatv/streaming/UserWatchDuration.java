@@ -419,31 +419,5 @@ public class UserWatchDuration {
         );
     }
 
-    /**
-     * 只在第一次启动时出示流地址与房间对应关系，不需要定时更新，新房间也不一定会统计，广播变量内没有的话查询reids
-     *
-     * @return
-     */
-    private static Map<String, String> getStreamRoomIdMap() {
-        Jedis jedis = new Jedis(redisHost, redisPort);
-        if (StringUtils.isNotEmpty(redisPwd)) {
-            jedis.auth(redisPwd);
-        }
-        String cursor = "0";
-        Map<String, String> map = new HashMap<>();
-        ScanParams params = new ScanParams().match("stream:*").count(1000);
-        ScanResult<String> scan = jedis.scan(cursor, params);
-        cursor = scan.getStringCursor();
-        while (!cursor.equals("0")) {
-            String key = scan.getResult().get(0);
-            map.put(key.substring(key.indexOf(":") + 1), jedis.get(key));
-            scan = jedis.scan(cursor, params);
-            cursor = scan.getStringCursor();
-
-        }
-        jedis.close();
-        logger.info("map.size:" + map.size());
-        return map;
-    }
 
 }

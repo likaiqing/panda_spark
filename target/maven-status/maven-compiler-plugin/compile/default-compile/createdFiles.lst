@@ -4,6 +4,7 @@ com/pandatv/tools/RedisClient$CleanWorkThread.class
 com/pandatv/tools/RedisClient.class
 com/pandatv/streaming/OffsetTest.class
 com/pandatv/streaming/Test.class
+com/pandatv/streaming/UserChangeInfo.class
 com/pandatv/streaming/RankGift.class
 com/pandatv/streaming/ChangeCla.class
 com/pandatv/streaming/UserWatchDuration.class
