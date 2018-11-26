@@ -22,6 +22,7 @@ import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
+import scala.Tuple3;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -105,18 +106,16 @@ public class RankGift {
                     if (null == rankProjectMap || rankProjectMap.size() == 0) {
                         return;
                     }
-                    String threadName = Thread.currentThread().getName();
                     OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
 //                    if (o.fromOffset() != o.untilOffset()) {
 //                        System.out.println(o.topic() + " " + o.partition() + " " + o.fromOffset() + " " + o.untilOffset());
 //                    }
-                    Map<String, String> qidRoomIdMap = new HashMap<>();
-                    Set<String> uids = new HashSet<>();
                     Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
                     if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
                         jedis.auth(redisPwdBroadcast.value());
                     }
                     ObjectMapper mapper = new ObjectMapper();
+                    List<Tuple3<String, Double, String>> result = new ArrayList<>();
                     while (p.hasNext()) {
                         String next = p.next();
                         logger.info("next:" + next);
@@ -125,38 +124,18 @@ public class RankGift {
                         DateTime dateTime = new DateTime(giftInfo.getTimeU() * 1000l);
                         String day = DateTimeFormat.forPattern("yyyyMMdd").print(dateTime);
                         int week = dateTime.weekOfWeekyear().get();
-                        uids.add(giftInfo.getUid());
                         for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
                             logger.info("executeSingleProject,project:" + entry.getValue());
-                            executeSingleProject(jedis, entry, giftInfo, qidRoomIdMap, giftInfo.getQid(), threadName, day, week);
+                            executeSingleProject(jedis, entry, giftInfo, giftInfo.getQid(), day, week, result);
                         }
                     }
-                    for (String uid : uids) {
-                        String key = "panda:zhaomu:usrdtl:" + uid;
-                        if (!jedis.exists(key)) {
-                            Map<String, String> userMap = new HashMap<>();
-                            String detail = getUserDetailMap(uid);
-                            if (StringUtils.isNotEmpty(detail)) {
-                                JsonNode data = mapper.readTree(detail).get("data");
-                                userMap.put("nickName", data.get("nickName").asText());
-                                userMap.put("avatar", data.get("avatar").asText());
-                                jedis.set(key, mapper.writeValueAsString(userMap), "NX", "EX", 2592000);
-                            }
-                        }
+                    Pipeline pipelined = jedis.pipelined();
+                    for (Tuple3<String, Double, String> tuple3 : result) {
+                        pipelined.zincrby(tuple3._1(), tuple3._2(), tuple3._3());
                     }
-                    for (Map.Entry<String, String> entry : qidRoomIdMap.entrySet()) {
-                        String qid = entry.getKey();
-                        String key = "panda:zhaomu:ancdtl:" + qid;
-                        if (!jedis.exists(key)) {
-                            Map<String, String> anchorMap = new HashMap<>();
-                            String roomId = entry.getValue();
-                            String detail = getUserDetailMap(qid);
-                            JsonNode data = mapper.readTree(detail).get("data");
-                            anchorMap.put("roomId", roomId);
-                            anchorMap.put("nickName", data.get("nickName").asText());
-                            anchorMap.put("avatar", data.get("avatar").asText());
-                            jedis.set(key, mapper.writeValueAsString(anchorMap), "NX", "EX", 2592000);
-                        }
+                    pipelined.sync();
+                    if (null != pipelined) {
+                        pipelined.close();
                     }
                     if (null != jedis) {
                         jedis.close();
@@ -221,6 +200,9 @@ public class RankGift {
                 if (paramMap.containsKey("weekAllRank")) {
                     rankProject.setWeekAllRank(Boolean.parseBoolean(paramMap.get("weekAllRank")));
                 }
+                if (paramMap.containsKey("monthAllRank")) {
+                    rankProject.setMonthAllRank(Boolean.parseBoolean(paramMap.get("monthAllRank")));
+                }
                 if (paramMap.containsKey("hourSpecificRank")) {
                     rankProject.setHourSpecificRank(Boolean.parseBoolean(paramMap.get("hourSpecificRank")));
                 }
@@ -229,6 +211,9 @@ public class RankGift {
                 }
                 if (paramMap.containsKey("weekSpecificRank")) {
                     rankProject.setWeekSpecificRank(Boolean.parseBoolean(paramMap.get("weekSpecificRank")));
+                }
+                if (paramMap.containsKey("monthSpecificRank")) {
+                    rankProject.setMonthSpecificRank(Boolean.parseBoolean(paramMap.get("monthSpecificRank")));
                 }
 
                 int flag = Integer.parseInt(paramMap.get("flag"));
@@ -303,7 +288,7 @@ public class RankGift {
         return giftInfo;
     }
 
-    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, Map<String, String> qidRoomidMap, String qid, String threadName, String day, int week) throws IOException {
+    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, String qid, String day, int week, List<Tuple3<String, Double, String>> result) throws IOException {
         RankProject rankProject = entry.getValue();
         long startTimeU = rankProject.getStartTimeU();
         long endTimeU = rankProject.getEndTimeU();
@@ -313,6 +298,7 @@ public class RankGift {
         String roomId = giftInfo.getRoomId();
         String giftId = giftInfo.getGiftId();
         String uid = giftInfo.getUid();
+        String month = day.substring(0, 6);
         if (timeU < startTimeU || timeU > endTimeU) {
             return;
         }
@@ -338,73 +324,126 @@ public class RankGift {
             }
         }
 
-        Pipeline pipelined = jedis.pipelined();
+//        Pipeline pipelined = jedis.pipelined();
         if (rankProject.isAllRank()) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Long.parseLong(total), uid);
-            qidRoomidMap.put(qid, roomId);
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Long.parseLong(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Long.parseLong(total), uid);
         }
         if (rankProject.isSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancSpecGf").append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), Long.parseLong(total), uid);
-            qidRoomidMap.put(qid, roomId);
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancSpecGf").append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancSpecGf").append(":rank").toString(), Long.parseLong(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), Long.parseLong(total), uid);
         }
         if (rankProject.isDayAllRank()) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
-            logger.info(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString() + ";uid:" + uid + ";total:" + total);
-            qidRoomidMap.put(qid, roomId);
+
+
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
         }
         if (rankProject.isDaySpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDySpecGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
-            qidRoomidMap.put(qid, roomId);
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDySpecGf").append(day).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDySpecGf").append(day).append(":rank").toString(), Double.parseDouble(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), Double.parseDouble(total), uid);
         }
         if (rankProject.isWeekAllRank()) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Long.parseLong(total), uid);
-            logger.info(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString() + ";uid:" + uid + ";total:" + total);
-            qidRoomidMap.put(qid, roomId);
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid);
         }
         if (rankProject.isWeekSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkSpecGf").append(week).append(":rank").toString(), Long.parseLong(total), qid);
-            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), Long.parseLong(total), uid);
-            qidRoomidMap.put(qid, roomId);
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkSpecGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkSpecGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid);
         }
+        if (rankProject.isMonthAllRank()) {
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid);
+        }
+        if (rankProject.isMonthSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthSpecGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthSpecGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthSpecGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid);
+//            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthSpecGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid);
+        }
+
         if (rankProject.getFlag() == 2) {//按分组报名方式
             if (rankProject.isAllRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isSpecificRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "SpecGf").append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "SpecGf").append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "SpecGf").append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isDayAllRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isDaySpecificRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DySpecGf" + day).append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DySpecGf" + day).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DySpecGf" + day).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isWeekAllRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isWeekSpecificRank()) {
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Long.parseLong(total), qid);
-                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Long.parseLong(total), uid);
-                qidRoomidMap.put(qid, roomId);
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Double.parseDouble(total), uid);
+            }
+            if (rankProject.isMonthAllRank()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), uid);
+            }
+            if (rankProject.isMonthSpecificRank()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthSpecGf" + month).append(":rank").toString(), Double.parseDouble(total), qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthSpecGf" + month).append(":rank").toString(), Double.parseDouble(total), uid));
+
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthSpecGf" + month).append(":rank").toString(), Double.parseDouble(total), qid);
+//                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthSpecGf" + month).append(":rank").toString(), Double.parseDouble(total), uid);
             }
         }
-        pipelined.sync();
-        pipelined.close();
+//        pipelined.sync();
+//        pipelined.close();
     }
 
     private static void initParams(Map<String, String> map) {

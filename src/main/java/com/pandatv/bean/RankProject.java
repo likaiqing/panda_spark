@@ -13,19 +13,48 @@ public class RankProject implements Serializable {
     private long endTimeU;
     private List<String> cates = new ArrayList<>();
     private List<String> giftIds = new ArrayList<>();//礼物id
+    //人气榜单
+    private boolean popularRank;
+
     private boolean allRank;
     private boolean specificRank;
     private boolean hourAllRank;
     private boolean dayAllRank;
     private boolean weekAllRank;
+    private boolean monthAllRank;
     private boolean hourSpecificRank;
     private boolean daySpecificRank;
     private boolean weekSpecificRank;
+    private boolean monthSpecificRank;
     private int flag;//0:开播有记录即统计，1:报名方式，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
 //    private Set<String> qids = new HashSet<>();
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
 //    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
 
+
+    public boolean isPopularRank() {
+        return popularRank;
+    }
+
+    public void setPopularRank(boolean popularRank) {
+        this.popularRank = popularRank;
+    }
+
+    public boolean isMonthAllRank() {
+        return monthAllRank;
+    }
+
+    public void setMonthAllRank(boolean monthAllRank) {
+        this.monthAllRank = monthAllRank;
+    }
+
+    public boolean isMonthSpecificRank() {
+        return monthSpecificRank;
+    }
+
+    public void setMonthSpecificRank(boolean monthSpecificRank) {
+        this.monthSpecificRank = monthSpecificRank;
+    }
 
     public boolean isAllRank() {
         return allRank;
@@ -147,6 +176,7 @@ public class RankProject implements Serializable {
         RankProject that = (RankProject) o;
         return startTimeU == that.startTimeU &&
                 endTimeU == that.endTimeU &&
+                popularRank == that.popularRank &&
                 allRank == that.allRank &&
                 specificRank == that.specificRank &&
                 hourAllRank == that.hourAllRank &&
@@ -174,14 +204,17 @@ public class RankProject implements Serializable {
                 ", endTimeU=" + endTimeU +
                 ", cates=" + cates +
                 ", giftIds=" + giftIds +
+                ", popularRank=" + popularRank +
                 ", allRank=" + allRank +
                 ", specificRank=" + specificRank +
                 ", hourAllRank=" + hourAllRank +
                 ", dayAllRank=" + dayAllRank +
                 ", weekAllRank=" + weekAllRank +
+                ", monthAllRank=" + monthAllRank +
                 ", hourSpecificRank=" + hourSpecificRank +
                 ", daySpecificRank=" + daySpecificRank +
                 ", weekSpecificRank=" + weekSpecificRank +
+                ", monthSpecificRank=" + monthSpecificRank +
                 ", flag=" + flag +
                 '}';
     }
