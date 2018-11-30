@@ -18,10 +18,10 @@ public class RankProject implements Serializable {
     private boolean weekPopularRank;//代表的是活动期间按周统计的人气榜单
     private boolean monthPopularRank;//代表的是活动期间按月统计的人气榜单
 
-    //特殊礼物额外多算,比如特殊礼物统计时，猫币多算0.5，即特殊礼物送100猫币，需要统计150猫币,specificExtraValue=0.5
+    //特殊礼物额外多算,比如特殊礼物统计时，猫币多算0.5，即特殊礼物送100猫币，需要统计150猫币,specificExtraRate=0.5
     //一旦设置，日榜总榜，周榜总榜，月榜总榜全部需要多加
     private boolean specificExtraAdd;
-    private double specificExtraValue;
+    private double specificExtraRate;
 
     private boolean allRank;//代表的是活动期间的礼物榜单
     private boolean specificRank;//代表活动期间的特殊礼物榜单
@@ -47,12 +47,12 @@ public class RankProject implements Serializable {
         this.specificExtraAdd = specificExtraAdd;
     }
 
-    public double getSpecificExtraValue() {
-        return specificExtraValue;
+    public double getSpecificExtraRate() {
+        return specificExtraRate;
     }
 
-    public void setSpecificExtraValue(double specificExtraValue) {
-        this.specificExtraValue = specificExtraValue;
+    public void setSpecificExtraRate(double specificExtraRate) {
+        this.specificExtraRate = specificExtraRate;
     }
 
     public boolean isWeekPopularRank() {
@@ -228,7 +228,7 @@ public class RankProject implements Serializable {
                 weekSpecificRank == that.weekSpecificRank &&
                 flag == that.flag &&
                 specificExtraAdd == that.specificExtraAdd &&
-                specificExtraValue == that.specificExtraValue &&
+                specificExtraRate == that.specificExtraRate &&
                 Objects.equals(project, that.project) &&
                 Objects.equals(cates, that.cates) &&
                 Objects.equals(giftIds, that.giftIds);
@@ -261,7 +261,7 @@ public class RankProject implements Serializable {
                 ", weekSpecificRank=" + weekSpecificRank +
                 ", monthSpecificRank=" + monthSpecificRank +
                 ", specificExtraAdd=" + specificExtraAdd +
-                ", specificExtraValue=" + specificExtraValue +
+                ", specificExtraRate=" + specificExtraRate +
                 ", flag=" + flag +
                 '}';
     }
