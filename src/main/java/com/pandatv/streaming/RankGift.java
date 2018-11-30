@@ -425,6 +425,9 @@ public class RankGift {
         if (map.containsKey("redisPort")) {
             redisPort = Integer.parseInt(map.get("redisPort"));
         }
+        if (map.containsKey("bootServers")) {
+            bootServers = map.get("bootServers");
+        }
         logger.info("groupId:" + groupId);
     }
 
