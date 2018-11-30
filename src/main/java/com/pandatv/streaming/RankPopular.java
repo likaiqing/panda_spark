@@ -106,13 +106,13 @@ public class RankPopular {
                         executeSinglePojectPopular(jedis, entry, sp, result, parse, format);
                     }
                 }
-                logger.warn("result.size:" + result.size());
+                logger.info("result.size:" + result.size());
                 //panda:{project}:ancPop:{qid}:map
                 Set<String> keys = new HashSet<>();
                 Pipeline pipelined = jedis.pipelined();
                 for (Tuple3<String, String, String> tuple3 : result) {
                     pipelined.evalsha(shaBroadcast.getValue(), 1, tuple3._1(), tuple3._2(), tuple3._3());
-                    logger.warn("pipelined.evalsha,key=" + tuple3._1() + ";value=" + tuple3._2() + " " + tuple3._3());
+                    logger.info("pipelined.evalsha,key=" + tuple3._1() + ";value=" + tuple3._2() + " " + tuple3._3());
                     //panda:{project}:ancPop:{qid}:map:{day}
                     keys.add(new StringBuffer(tuple3._1()).append(":").append(tuple3._2()).toString());
                 }
@@ -120,7 +120,7 @@ public class RankPopular {
                 pipelined.close();
                 List<Tuple3<String, Long, String>> rankTuples = new ArrayList<>();
                 DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
-                logger.warn("keys.size:" + keys.size());
+                logger.info("keys.size:" + keys.size());
                 for (String key : keys) {
                     //panda:{project}:ancPop:{qid}:map:{day}
                     String[] split = key.split(":");
@@ -131,7 +131,7 @@ public class RankPopular {
                     Map<String, String> qidDayPop = jedis.hgetAll(key.substring(0, key.lastIndexOf(":")));
                     DateTime curDateTime = formatter.parseDateTime(day);//当前日志日期
                     int daySize = (int) ((curDateTime.getMillis() - rankProject.getStartTimeU() * 1000l) / 86400000l) + 1;//距离活动开始日期的天数
-                    logger.warn("key " + key.substring(0, key.lastIndexOf(":")) + "; day:" + day + "; project:" + project + "; qidDayPop:" + qidDayPop + "; daySize:" + daySize);
+                    logger.info("key " + key.substring(0, key.lastIndexOf(":")) + "; day:" + day + "; project:" + project + "; qidDayPop:" + qidDayPop + "; daySize:" + daySize);
                     if (rankProject.isPopularRank()) {//人气总榜
                         addRankTuple(split, qid, daySize, "ancPop", qidDayPop, formatter, curDateTime, rankTuples);
                     }
@@ -148,10 +148,10 @@ public class RankPopular {
                         addRankTuple(split, qid, days, "ancMthPop", qidDayPop, formatter, curDateTime, rankTuples);
                     }
                 }
-                logger.warn("rankTuples.size:" + rankTuples.size());
+                logger.info("rankTuples.size:" + rankTuples.size());
                 for (Tuple3<String, Long, String> tuple : rankTuples) {
                     pipelined.zadd(tuple._1(), tuple._2(), tuple._3());
-                    logger.warn("pipelined.zadd key=" + tuple._1() + "; value:" + tuple._2() + " " + tuple._2());
+                    logger.info("pipelined.zadd key=" + tuple._1() + "; value:" + tuple._2() + " " + tuple._2());
                 }
                 pipelined = jedis.pipelined();
                 pipelined.sync();
@@ -171,19 +171,19 @@ public class RankPopular {
         for (int i = 0; i < days; i++) {
             String date = formatter.print(curDateTime.plusDays(-i));
             String pop = qidDayPop.getOrDefault(date, "0");
-            logger.warn("rankFlag:" + rankFlag + "; pop==0;date:" + date + "; qidDayPop:" + qidDayPop + "; qidDayPop.get(" + date + ")" + qidDayPop.get(date) + "; i:" + i + "; days:" + days);
+            logger.info("rankFlag:" + rankFlag + "; pop==0;date:" + date + "; qidDayPop:" + qidDayPop + "; qidDayPop.get(" + date + ")" + qidDayPop.get(date) + "; i:" + i + "; days:" + days);
             if ("0".equals(pop)) {
                 continue;
             }
             divisor++;
             dividend += Integer.parseInt(pop);
         }
-        logger.warn("dividend:" + dividend + ";divisor:" + divisor + "; rankFlag:" + rankFlag);
+        logger.info("dividend:" + dividend + ";divisor:" + divisor + "; rankFlag:" + rankFlag);
         if (divisor > 0 && dividend > 0) {
             avgPop = dividend / divisor;
             String rankKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":").append(rankFlag).append(":rank").toString();
             rankTuples.add(new Tuple3<String, Long, String>(rankKey, avgPop, qid));
-            logger.warn("rankTuples.add key=" + rankKey + " avgPop=" + avgPop + " qid=" + qid);
+            logger.info("rankTuples.add key=" + rankKey + " avgPop=" + avgPop + " qid=" + qid);
         }
     }
 
@@ -253,7 +253,7 @@ public class RankPopular {
                 String value = entry.getValue();
                 Map<String, String> paramMap = Splitter.on(",").withKeyValueSeparator("=").split(value);
                 if (!paramMap.containsKey("project") || !paramMap.containsKey("startTimeU") || !paramMap.containsKey("endTimeU") || !paramMap.containsKey("flag") || (!paramMap.containsKey("popularRank") && !paramMap.containsKey("weekPopularRank") && !paramMap.containsKey("monthPopularRank"))) {
-                    logger.warn("没有人气榜单需求，key:" + key + ";value:" + value);
+                    logger.info("没有人气榜单需求，key:" + key + ";value:" + value);
                     continue;
                 }
                 int flag = Integer.parseInt(paramMap.get("flag"));
