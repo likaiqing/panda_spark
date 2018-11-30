@@ -402,7 +402,7 @@ public class RankGift {
         if (rankProject.isMonthAllRank()) {
             double tmpTotal = Double.parseDouble(total);
             try {
-                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
                     tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
                 }
             } catch (Exception e) {
@@ -424,8 +424,16 @@ public class RankGift {
 
         if (rankProject.getFlag() == 2) {//按分组报名方式
             if (rankProject.isAllRank()) {
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), qid));
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), uid));
+                double tmpTotal = Double.parseDouble(total);
+                try {
+                    if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
+                        tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), tmpTotal, qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), tmpTotal, uid));
 
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), qid);
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), Double.parseDouble(total), uid);
@@ -438,8 +446,16 @@ public class RankGift {
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isDayAllRank()) {
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), qid));
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), uid));
+                double tmpTotal = Double.parseDouble(total);
+                try {
+                    if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
+                        tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), tmpTotal, qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), tmpTotal, uid));
 
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), qid);
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), Double.parseDouble(total), uid);
@@ -452,8 +468,16 @@ public class RankGift {
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isWeekAllRank()) {
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), qid));
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), uid));
+                double tmpTotal = Double.parseDouble(total);
+                try {
+                    if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
+                        tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), tmpTotal, qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), tmpTotal, uid));
 
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), qid);
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), Double.parseDouble(total), uid);
@@ -466,8 +490,16 @@ public class RankGift {
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), Double.parseDouble(total), uid);
             }
             if (rankProject.isMonthAllRank()) {
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), qid));
-                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), uid));
+                double tmpTotal = Double.parseDouble(total);
+                try {
+                    if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
+                        tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), tmpTotal, qid));
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), tmpTotal, uid));
 
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), qid);
 //                pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), Double.parseDouble(total), uid);
