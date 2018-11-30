@@ -2,6 +2,9 @@ package com.pandatv;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Tuple;
@@ -40,6 +43,19 @@ public class Test {
         String data = jsonNode.get("data").asText();
         String rid = mapper.readTree(data).get("rid").asText();
         System.out.println(rid);
+
+
+    }
+
+
+    @org.junit.Test
+    public void test5() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        String next = "{\"data\":\"{\\\"classification\\\":\\\"starface\\\",\\\"hostid\\\":\\\"82436604\\\",\\\"person_num\\\":184,\\\"roomid\\\":\\\"4235606\\\",\\\"timestamp\\\":1542618451}\",\"host\":\"pt9v.plat.bjtb.pdtv.it\",\"key\":\"\",\"name\":\"shadow_show_person_num\",\"requestid\":\"\",\"time\":\"2018-11-19 17:07:31\"}";
+        JsonNode jsonNode = mapper.readTree(next);
+        JsonNode dataNode = jsonNode.get("data");
+        String hostid = mapper.readTree(dataNode.asText()).get("hostid").asText();
+        System.out.println(jsonNode);
     }
 
     @org.junit.Test
@@ -79,5 +95,20 @@ public class Test {
         }
         jedis.close();
 
+    }
+
+    @org.junit.Test
+    public void test6() throws IOException, InterruptedException {
+        HashMap<String, Integer> map = new HashMap<>();
+        Integer res = map.values().stream().reduce((a, b) -> a + b).orElse(0);
+        System.out.println(res);
+    }
+
+    @org.junit.Test
+    public void test7() throws IOException, InterruptedException {
+        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
+        DateTime curDateTime = formatter.parseDateTime("20181129");//当前日志日期
+        int daySize = (int) ((curDateTime.getMillis() - (1543075200 * 1000l)) / 86400000l) + 1;
+        System.out.println(daySize);
     }
 }

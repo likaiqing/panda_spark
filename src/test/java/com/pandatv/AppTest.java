@@ -53,9 +53,9 @@ public class AppTest {
         JsonNode uid = data.get("uid");
 //        System.out.println(uid.toString());
 
-        String json = sendGet("http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/get?rid=39946732");
-        int level = mapper.readTree(json).get("data").get("level").asInt();
-        System.out.println(level);
+//        String json = sendGet("http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/get?rid=39946732");
+//        int level = mapper.readTree(json).get("data").get("level").asInt();
+//        System.out.println(level);
     }
 
     public static String sendGet(String url) {

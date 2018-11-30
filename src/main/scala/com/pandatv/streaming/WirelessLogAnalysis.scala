@@ -79,7 +79,7 @@ object WirelessLogAnalysis {
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "broadcast_test",
       "bootstrap.servers" -> "10.131.6.79:9092",
-      "auto.offset.reset" -> false)
+      "auto.offset.reset" -> "false")
 
     val message = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent, ConsumerStrategies.Subscribe[String, String]("".split(","), kafkaParams)) //新加分区，如果没有设置，将会消费不到
     //原始日志流打印

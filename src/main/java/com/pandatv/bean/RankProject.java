@@ -14,23 +14,62 @@ public class RankProject implements Serializable {
     private List<String> cates = new ArrayList<>();
     private List<String> giftIds = new ArrayList<>();//礼物id
     //人气榜单
-    private boolean popularRank;
+    private boolean popularRank;//代表的是活动期间人气榜单
+    private boolean weekPopularRank;//代表的是活动期间按周统计的人气榜单
+    private boolean monthPopularRank;//代表的是活动期间按月统计的人气榜单
 
-    private boolean allRank;
-    private boolean specificRank;
-    private boolean hourAllRank;
-    private boolean dayAllRank;
-    private boolean weekAllRank;
-    private boolean monthAllRank;
-    private boolean hourSpecificRank;
-    private boolean daySpecificRank;
-    private boolean weekSpecificRank;
-    private boolean monthSpecificRank;
-    private int flag;//0:开播有记录即统计，1:报名方式，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
+    //特殊礼物额外多算,比如特殊礼物统计时，猫币多算0.5，即特殊礼物送100猫币，需要统计150猫币,specificExtraValue=0.5
+    //一旦设置，日榜总榜，周榜总榜，月榜总榜全部需要多加
+    private boolean specificExtraAdd;
+    private double specificExtraValue;
+
+    private boolean allRank;//代表的是活动期间的礼物榜单
+    private boolean specificRank;//代表活动期间的特殊礼物榜单
+    private boolean hourAllRank;//代表活动期间按小时统计礼物榜单
+    private boolean dayAllRank;//代表活动期间按天统计的礼物榜单
+    private boolean weekAllRank;//代表活动期间按周统计的礼物榜单
+    private boolean monthAllRank;//代表活动期间按月统计的礼物榜单
+    private boolean hourSpecificRank;//代表活动期间按小时统计的特殊礼物榜单
+    private boolean daySpecificRank;//代表活动期间按天统计的特殊礼物榜单
+    private boolean weekSpecificRank;//代表活动期间按周统计的特殊礼物榜单
+    private boolean monthSpecificRank;//代表活动期间按月统计的特殊礼物榜单
+    private int flag;//0:开播有记录即统计，1:主播名单固定方式，前端报名的方式会使用flag=0,接口过滤报名的主播，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
 //    private Set<String> qids = new HashSet<>();
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
 //    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
 
+
+    public boolean isSpecificExtraAdd() {
+        return specificExtraAdd;
+    }
+
+    public void setSpecificExtraAdd(boolean specificExtraAdd) {
+        this.specificExtraAdd = specificExtraAdd;
+    }
+
+    public double getSpecificExtraValue() {
+        return specificExtraValue;
+    }
+
+    public void setSpecificExtraValue(double specificExtraValue) {
+        this.specificExtraValue = specificExtraValue;
+    }
+
+    public boolean isWeekPopularRank() {
+        return weekPopularRank;
+    }
+
+    public void setWeekPopularRank(boolean weekPopularRank) {
+        this.weekPopularRank = weekPopularRank;
+    }
+
+    public boolean isMonthPopularRank() {
+        return monthPopularRank;
+    }
+
+    public void setMonthPopularRank(boolean monthPopularRank) {
+        this.monthPopularRank = monthPopularRank;
+    }
 
     public boolean isPopularRank() {
         return popularRank;
@@ -177,6 +216,8 @@ public class RankProject implements Serializable {
         return startTimeU == that.startTimeU &&
                 endTimeU == that.endTimeU &&
                 popularRank == that.popularRank &&
+                weekPopularRank == that.weekPopularRank &&
+                monthPopularRank == that.monthPopularRank &&
                 allRank == that.allRank &&
                 specificRank == that.specificRank &&
                 hourAllRank == that.hourAllRank &&
@@ -186,6 +227,8 @@ public class RankProject implements Serializable {
                 daySpecificRank == that.daySpecificRank &&
                 weekSpecificRank == that.weekSpecificRank &&
                 flag == that.flag &&
+                specificExtraAdd == that.specificExtraAdd &&
+                specificExtraValue == that.specificExtraValue &&
                 Objects.equals(project, that.project) &&
                 Objects.equals(cates, that.cates) &&
                 Objects.equals(giftIds, that.giftIds);
@@ -205,6 +248,8 @@ public class RankProject implements Serializable {
                 ", cates=" + cates +
                 ", giftIds=" + giftIds +
                 ", popularRank=" + popularRank +
+                ", weekPopularRank=" + weekPopularRank +
+                ", monthPopularRank=" + monthPopularRank +
                 ", allRank=" + allRank +
                 ", specificRank=" + specificRank +
                 ", hourAllRank=" + hourAllRank +
@@ -215,6 +260,8 @@ public class RankProject implements Serializable {
                 ", daySpecificRank=" + daySpecificRank +
                 ", weekSpecificRank=" + weekSpecificRank +
                 ", monthSpecificRank=" + monthSpecificRank +
+                ", specificExtraAdd=" + specificExtraAdd +
+                ", specificExtraValue=" + specificExtraValue +
                 ", flag=" + flag +
                 '}';
     }

@@ -5,7 +5,7 @@ set -e
 jar=$1
 jar=${jar:=panda_spark}
 echo $jar
-mvn clean compile package
+mvn clean compile package -Dmaven.test.skip=true
 
 dir=/Users/likaiqing/space/panda/panda_spark/target
 mv $dir/panda_spark-1.0-SNAPSHOT.jar $dir/${jar}.jar

@@ -41,7 +41,7 @@ public class RankGift {
 
     private static final Logger logger = LogManager.getLogger(RankGift.class);
 
-    private static String projectKey = "rank:gift:projectMap";
+    private static Broadcast<String> projectKeyBroadcast;
 
     //测试环境
 //    private static String topics = "pcgameq_panda_gift_donate";
@@ -61,7 +61,7 @@ public class RankGift {
 
     //线上
     private static String topics = "pcgameq_panda_gift_donate";
-    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts
+    private static String bootServers = "10.131.10.27:9092";//kafkabiz6-10v.infra.bjtb.pdtv.it，worker服务器需要配置hosts KM:http://kafkabiz10v.infra.bjtb.pdtv.it:9090/clusters/online_bjtb_biz/consumers
     private static String groupId = "gift_rank_stream";
     private static String redisHost = "10.131.11.151";
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
@@ -95,6 +95,7 @@ public class RankGift {
         Broadcast<String> redisHostBroadcast = context.broadcast(redisHost);
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
+        projectKeyBroadcast = context.broadcast("rank:gift:projectMap");
 
         JavaInputDStream<ConsumerRecord<String, String>> message = initMessage(ssc, args);
 
@@ -158,7 +159,7 @@ public class RankGift {
             jedis.auth(redisPwd);
         }
         Map<String, RankProject> projectsMap = new HashMap<>();
-        Map<String, String> projectMap = jedis.hgetAll(projectKey);
+        Map<String, String> projectMap = jedis.hgetAll(projectKeyBroadcast.getValue());
 //        logger.warn("InitPojectsBc run");
         for (Map.Entry<String, String> entry : projectMap.entrySet()) {
             try {
@@ -214,6 +215,13 @@ public class RankGift {
                 }
                 if (paramMap.containsKey("monthSpecificRank")) {
                     rankProject.setMonthSpecificRank(Boolean.parseBoolean(paramMap.get("monthSpecificRank")));
+                }
+                //特殊礼物额外多加
+                if (paramMap.containsKey("specificExtraAdd")) {
+                    rankProject.setSpecificExtraAdd(Boolean.parseBoolean(paramMap.get("specificExtraAdd")));
+                }
+                if (paramMap.containsKey("specificExtraValue")) {
+                    rankProject.setSpecificExtraValue(Double.parseDouble(paramMap.get("specificExtraValue")));
                 }
 
                 int flag = Integer.parseInt(paramMap.get("flag"));
@@ -326,8 +334,16 @@ public class RankGift {
 
 //        Pipeline pipelined = jedis.pipelined();
         if (rankProject.isAllRank()) {
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Double.parseDouble(total), qid));
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Double.parseDouble(total), uid));
+            double tmpTotal = Double.parseDouble(total);
+            try {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                    tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), tmpTotal, qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), tmpTotal, uid));
 
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), Long.parseLong(total), qid);
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), Long.parseLong(total), uid);
@@ -340,10 +356,16 @@ public class RankGift {
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), Long.parseLong(total), uid);
         }
         if (rankProject.isDayAllRank()) {
-
-
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Double.parseDouble(total), qid));
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Double.parseDouble(total), uid));
+            double tmpTotal = Double.parseDouble(total);
+            try {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                    tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), tmpTotal, qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), tmpTotal, uid));
 
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), qid);
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), Long.parseLong(total), uid);
@@ -356,8 +378,16 @@ public class RankGift {
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), Double.parseDouble(total), uid);
         }
         if (rankProject.isWeekAllRank()) {
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid));
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid));
+            double tmpTotal = Double.parseDouble(total);
+            try {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                    tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), tmpTotal, qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), tmpTotal, uid));
 
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), qid);
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid);
@@ -370,8 +400,16 @@ public class RankGift {
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), Double.parseDouble(total), uid);
         }
         if (rankProject.isMonthAllRank()) {
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid));
-            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid));
+            double tmpTotal = Double.parseDouble(total);
+            try {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                    tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), tmpTotal, qid));
+            result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), tmpTotal, uid));
 
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), qid);
 //            pipelined.zincrby(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), Double.parseDouble(total), uid);
