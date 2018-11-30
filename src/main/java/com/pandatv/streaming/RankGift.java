@@ -336,7 +336,7 @@ public class RankGift {
         if (rankProject.isAllRank()) {
             double tmpTotal = Double.parseDouble(total);
             try {
-                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
                     tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
                 }
             } catch (Exception e) {
@@ -358,7 +358,7 @@ public class RankGift {
         if (rankProject.isDayAllRank()) {
             double tmpTotal = Double.parseDouble(total);
             try {
-                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
                     tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
                 }
             } catch (Exception e) {
@@ -380,7 +380,7 @@ public class RankGift {
         if (rankProject.isWeekAllRank()) {
             double tmpTotal = Double.parseDouble(total);
             try {
-                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(rankProject.getGiftIds())) {
+                if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId)) {
                     tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraValue());
                 }
             } catch (Exception e) {

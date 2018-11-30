@@ -2,6 +2,7 @@ package com.pandatv;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pandatv.bean.RankProject;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -110,5 +111,13 @@ public class Test {
         DateTime curDateTime = formatter.parseDateTime("20181129");//当前日志日期
         int daySize = (int) ((curDateTime.getMillis() - (1543075200 * 1000l)) / 86400000l) + 1;
         System.out.println(daySize);
+    }
+
+    @org.junit.Test
+    public void test8() throws IOException, InterruptedException {
+        RankProject rankProject = new RankProject();
+        List<String> giftIds = new ArrayList<>();
+        rankProject.setGiftIds(giftIds);
+
     }
 }
