@@ -30,6 +30,8 @@ import java.util.*;
 /**
  * @author: likaiqing
  * @create: 2018-11-21 11:28
+ *
+ * {"data":"{\"classification\":\"starface\",\"hostid\":\"82436604\",\"person_num\":184,\"roomid\":\"4235606\",\"timestamp\":1542618451}","host":"pt9v.plat.bjtb.pdtv.it","key":"","name":"shadow_show_person_num","requestid":"","time":"2018-11-19 17:07:31"}
  **/
 public class RankPopular {
     private static final Logger logger = LogManager.getLogger(RankPopular.class);
