@@ -30,7 +30,7 @@ import java.util.*;
 /**
  * @author: likaiqing
  * @create: 2018-11-21 11:28
- *
+ * <p>
  * {"data":"{\"classification\":\"starface\",\"hostid\":\"82436604\",\"person_num\":184,\"roomid\":\"4235606\",\"timestamp\":1542618451}","host":"pt9v.plat.bjtb.pdtv.it","key":"","name":"shadow_show_person_num","requestid":"","time":"2018-11-19 17:07:31"}
  **/
 public class RankPopular {
@@ -122,6 +122,7 @@ public class RankPopular {
                 pipelined.close();
                 List<Tuple3<String, Long, String>> rankTuples = new ArrayList<>();
                 DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
+                DateTimeFormatter monthFor = DateTimeFormat.forPattern("yyyyMM");
                 logger.info("keys.size:" + keys.size());
                 for (String key : keys) {
                     //panda:{project}:ancPop:{qid}:map:{day}
@@ -141,13 +142,15 @@ public class RankPopular {
                         int days = 1;
                         int dayOfWeek = curDateTime.dayOfWeek().get();
                         days = dayOfWeek > daySize ? daySize : dayOfWeek;
-                        addRankTuple(split, qid, days, "ancWkPop", qidDayPop, formatter, curDateTime, rankTuples);
+                        int week = curDateTime.weekOfWeekyear().get();
+                        addRankTuple(split, qid, days, "ancWkPop" + week, qidDayPop, formatter, curDateTime, rankTuples);
                     }
                     if (rankProject.isMonthPopularRank()) {//人气月榜
                         int days = 1;
                         int dayOfMonth = curDateTime.dayOfMonth().get();
                         days = dayOfMonth > daySize ? daySize : dayOfMonth;
-                        addRankTuple(split, qid, days, "ancMthPop", qidDayPop, formatter, curDateTime, rankTuples);
+                        String month = monthFor.print(curDateTime);
+                        addRankTuple(split, qid, days, "ancMthPop" + month, qidDayPop, formatter, curDateTime, rankTuples);
                     }
                 }
                 logger.info("rankTuples.size:" + rankTuples.size());

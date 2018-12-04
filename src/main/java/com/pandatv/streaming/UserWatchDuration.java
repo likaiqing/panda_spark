@@ -102,7 +102,7 @@ public class UserWatchDuration {
         Broadcast<String> redisHostBroadcast = context.broadcast(redisHost);
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
-        System.out.println("redisHost:" + redisHostBroadcast + ";redisPort:" + redisPort + ";redisPwd:" + redisPwd + ";project:" + projectBroadcast.getValue()+";startTimeU:"+startTimeUBroadcast.getValue()+";endTimeU:"+endTimeUBroadcast.getValue());
+        System.out.println("redisHost:" + redisHost + ";redisPort:" + redisPort + ";redisPwd:" + redisPwd + ";project:" + projectBroadcast.getValue() + ";startTimeU:" + startTimeUBroadcast.getValue() + ";endTimeU:" + endTimeUBroadcast.getValue());
 
         /**
          * 广播流地址与房间号对应关系变量,暂时不用，等确定流地址与房间号一一对应之后再使用
@@ -405,8 +405,8 @@ public class UserWatchDuration {
         kafkaParams.put("key.deserializer", StringDeserializer.class);
         kafkaParams.put("value.deserializer", StringDeserializer.class);
         kafkaParams.put("group.id", groupId);
-        kafkaParams.put("auto.offset.reset", "earliest");
-//        kafkaParams.put("auto.offset.reset", "latest");
+//        kafkaParams.put("auto.offset.reset", "earliest");
+        kafkaParams.put("auto.offset.reset", "latest");
         //batch duration大于30秒，需设置以下两个参数
 //        kafkaParams.put("heartbeat.interval.ms", "130000");//小于session.timeout.ms，最后高于1/3
 //        kafkaParams.put("session.timeout.ms", "300000");//范围group.min.session.timeout.ms(6000)与group.max.session.timeout.ms(30000)之间
