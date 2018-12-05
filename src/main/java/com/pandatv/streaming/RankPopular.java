@@ -261,6 +261,9 @@ public class RankPopular {
                     logger.info("没有人气榜单需求，key:" + key + ";value:" + value);
                     continue;
                 }
+                if (!Boolean.parseBoolean(paramMap.getOrDefault("online", "true"))) {
+                    continue;
+                }
                 int flag = Integer.parseInt(paramMap.get("flag"));
                 if (flag != 0 && flag != 1) {
                     continue;

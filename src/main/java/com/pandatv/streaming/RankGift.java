@@ -170,6 +170,9 @@ public class RankGift {
                     logger.error("参数配置出错，key:" + key + ";value:" + value);
                     continue;
                 }
+                if (!Boolean.parseBoolean(paramMap.getOrDefault("online", "true"))) {
+                    continue;
+                }
                 RankProject rankProject = new RankProject();
                 rankProject.setProject(key);
                 String cates = paramMap.getOrDefault("cates", "");

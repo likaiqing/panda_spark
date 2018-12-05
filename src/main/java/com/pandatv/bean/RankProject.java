@@ -38,6 +38,15 @@ public class RankProject implements Serializable {
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
 //    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
 
+    private boolean online;
+
+    public boolean isOnline() {
+        return online;
+    }
+
+    public void setOnline(boolean online) {
+        this.online = online;
+    }
 
     public boolean isSpecificExtraAdd() {
         return specificExtraAdd;
@@ -229,6 +238,7 @@ public class RankProject implements Serializable {
                 flag == that.flag &&
                 specificExtraAdd == that.specificExtraAdd &&
                 specificExtraRate == that.specificExtraRate &&
+                online == that.online &&
                 Objects.equals(project, that.project) &&
                 Objects.equals(cates, that.cates) &&
                 Objects.equals(giftIds, that.giftIds);
@@ -262,6 +272,7 @@ public class RankProject implements Serializable {
                 ", monthSpecificRank=" + monthSpecificRank +
                 ", specificExtraAdd=" + specificExtraAdd +
                 ", specificExtraRate=" + specificExtraRate +
+                ", online=" + online +
                 ", flag=" + flag +
                 '}';
     }
