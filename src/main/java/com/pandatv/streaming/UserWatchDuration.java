@@ -322,6 +322,7 @@ public class UserWatchDuration {
                             String key = new StringBuffer(projectBroadcast.value()).append(":user:dur:pf:").append(uid).append(":").append(day).toString();
                             keys.add(key);
                             pipelined.pfadd(key, String.valueOf(next1));
+                            pipelined.expire(key, 604800);//7天
                         }
                     }
                     pipelined.sync();
@@ -335,6 +336,7 @@ public class UserWatchDuration {
                             String uid = keySplit[keySplit.length - 2];
                             String userSingDaysKey = new StringBuffer(projectBroadcast.value()).append(":user:singin:days:").append(uid).toString();
                             Long sadd = jedis.sadd(userSingDaysKey, keySplit[keySplit.length - 1]);//{project}:user:singin:days:{uid}-->{day}每个用户签到的日期set
+                            jedis.expire(userSingDaysKey, 5184000);//60天
                             if (sadd > 0) {//是新日期
                                 Long scard = jedis.scard(userSingDaysKey);
                                 if (null == producer) {
@@ -357,10 +359,12 @@ public class UserWatchDuration {
                                 metaMap.put("days", scard);
                                 metaMap.put("timeU", new Date().getTime());
                                 String metaJson = mapper.writeValueAsString(metaMap);
-                                jedis.hset(new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString(), new StringBuffer(uid).toString(), metaJson);
+                                String sendsKey = new StringBuffer(projectBroadcast.value()).append(":kafkasends").toString();
+                                jedis.hset(sendsKey, new StringBuffer(uid).toString(), metaJson);
 //                                System.out.println(new StringBuffer("time:").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append(";value:").append(value).append(";metaJson:").append(metaJson).toString());
 
 //                                }
+                                jedis.expire(sendsKey, 5184000);//60天
 
                             }
                         }

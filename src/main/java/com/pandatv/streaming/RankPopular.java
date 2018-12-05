@@ -84,86 +84,90 @@ public class RankPopular {
 
         message.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-            Map<String, RankProject> rankProjectMap = getProjectMap();
-            rdd.map(r -> r.value()).foreachPartition(p -> {
-                if (null == rankProjectMap || rankProjectMap.size() == 0) {
-                    return;
-                }
-                OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
-                Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
-                if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
-                    jedis.auth(redisPwdBroadcast.value());
-                }
-                ObjectMapper mapper = new ObjectMapper();
-                List<Tuple3<String, String, String>> result = new ArrayList<>();
-                DateTimeFormatter parse = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
-                DateTimeFormatter format = DateTimeFormat.forPattern("yyyyMMdd");
+            try {
+                Map<String, RankProject> rankProjectMap = getProjectMap();
+                rdd.map(r -> r.value()).foreachPartition(p -> {
+                    if (null == rankProjectMap || rankProjectMap.size() == 0) {
+                        return;
+                    }
+                    OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
+                    Jedis jedis = new Jedis(redisHostBroadcast.value(), redisPortBroadcast.value());
+                    if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
+                        jedis.auth(redisPwdBroadcast.value());
+                    }
+                    ObjectMapper mapper = new ObjectMapper();
+                    List<Tuple3<String, String, String>> result = new ArrayList<>();
+                    DateTimeFormatter parse = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
+                    DateTimeFormatter format = DateTimeFormat.forPattern("yyyyMMdd");
 //                Pipeline pipelined = jedis.pipelined();
-                while (p.hasNext()) {
-                    String next = p.next();
-                    logger.info("next:" + next);
-                    ShadowPopularity sp = getShadowPopularity(next, mapper);
-                    for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
-                        logger.info("executeSingleProject,project:" + entry.getValue());
-                        executeSinglePojectPopular(jedis, entry, sp, result, parse, format);
+                    while (p.hasNext()) {
+                        String next = p.next();
+                        logger.info("next:" + next);
+                        ShadowPopularity sp = getShadowPopularity(next, mapper);
+                        for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
+                            logger.info("executeSingleProject,project:" + entry.getValue());
+                            executeSinglePojectPopular(jedis, entry, sp, result, parse, format);
+                        }
                     }
-                }
-                logger.info("result.size:" + result.size());
-                //panda:{project}:ancPop:{qid}:map
-                Set<String> keys = new HashSet<>();
-                Pipeline pipelined = jedis.pipelined();
-                for (Tuple3<String, String, String> tuple3 : result) {
-                    pipelined.evalsha(shaBroadcast.getValue(), 1, tuple3._1(), tuple3._2(), tuple3._3());
-                    logger.info("pipelined.evalsha,key=" + tuple3._1() + ";value=" + tuple3._2() + " " + tuple3._3());
-                    //panda:{project}:ancPop:{qid}:map:{day}
-                    keys.add(new StringBuffer(tuple3._1()).append(":").append(tuple3._2()).toString());
-                }
-                pipelined.sync();
-                pipelined.close();
-                List<Tuple3<String, Long, String>> rankTuples = new ArrayList<>();
-                DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
-                DateTimeFormatter monthFor = DateTimeFormat.forPattern("yyyyMM");
-                logger.info("keys.size:" + keys.size());
-                for (String key : keys) {
-                    //panda:{project}:ancPop:{qid}:map:{day}
-                    String[] split = key.split(":");
-                    String project = split[1];
-                    String qid = split[3];
-                    String day = split[5];
-                    RankProject rankProject = rankProjectMap.get(project);
-                    Map<String, String> qidDayPop = jedis.hgetAll(key.substring(0, key.lastIndexOf(":")));
-                    DateTime curDateTime = formatter.parseDateTime(day);//当前日志日期
-                    int daySize = (int) ((curDateTime.getMillis() - rankProject.getStartTimeU() * 1000l) / 86400000l) + 1;//距离活动开始日期的天数
-                    logger.info("key " + key.substring(0, key.lastIndexOf(":")) + "; day:" + day + "; project:" + project + "; qidDayPop:" + qidDayPop + "; daySize:" + daySize);
-                    if (rankProject.isPopularRank()) {//人气总榜
-                        addRankTuple(split, qid, daySize, "ancPop", qidDayPop, formatter, curDateTime, rankTuples);
+                    logger.info("result.size:" + result.size());
+                    //panda:{project}:ancPop:{qid}:map
+                    Set<String> keys = new HashSet<>();
+                    Pipeline pipelined = jedis.pipelined();
+                    for (Tuple3<String, String, String> tuple3 : result) {
+                        pipelined.evalsha(shaBroadcast.getValue(), 1, tuple3._1(), tuple3._2(), tuple3._3());
+                        logger.info("pipelined.evalsha,key=" + tuple3._1() + ";value=" + tuple3._2() + " " + tuple3._3());
+                        //panda:{project}:ancPop:{qid}:map:{day}
+                        keys.add(new StringBuffer(tuple3._1()).append(":").append(tuple3._2()).toString());
                     }
-                    if (rankProject.isWeekPopularRank()) {//人气周榜 dividend被除数 divisor除数  dividend%divider
-                        int days = 1;
-                        int dayOfWeek = curDateTime.dayOfWeek().get();
-                        days = dayOfWeek > daySize ? daySize : dayOfWeek;
-                        int week = curDateTime.weekOfWeekyear().get();
-                        addRankTuple(split, qid, days, "ancWkPop" + week, qidDayPop, formatter, curDateTime, rankTuples);
+                    pipelined.sync();
+                    pipelined.close();
+                    List<Tuple3<String, Long, String>> rankTuples = new ArrayList<>();
+                    DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
+                    DateTimeFormatter monthFor = DateTimeFormat.forPattern("yyyyMM");
+                    logger.info("keys.size:" + keys.size());
+                    for (String key : keys) {
+                        //panda:{project}:ancPop:{qid}:map:{day}
+                        String[] split = key.split(":");
+                        String project = split[1];
+                        String qid = split[3];
+                        String day = split[5];
+                        RankProject rankProject = rankProjectMap.get(project);
+                        Map<String, String> qidDayPop = jedis.hgetAll(key.substring(0, key.lastIndexOf(":")));
+                        DateTime curDateTime = formatter.parseDateTime(day);//当前日志日期
+                        int daySize = (int) ((curDateTime.getMillis() - rankProject.getStartTimeU() * 1000l) / 86400000l) + 1;//距离活动开始日期的天数
+                        logger.info("key " + key.substring(0, key.lastIndexOf(":")) + "; day:" + day + "; project:" + project + "; qidDayPop:" + qidDayPop + "; daySize:" + daySize);
+                        if (rankProject.isPopularRank()) {//人气总榜
+                            addRankTuple(split, qid, daySize, "ancPop", qidDayPop, formatter, curDateTime, rankTuples);
+                        }
+                        if (rankProject.isWeekPopularRank()) {//人气周榜 dividend被除数 divisor除数  dividend%divider
+                            int days = 1;
+                            int dayOfWeek = curDateTime.dayOfWeek().get();
+                            days = dayOfWeek > daySize ? daySize : dayOfWeek;
+                            int week = curDateTime.weekOfWeekyear().get();
+                            addRankTuple(split, qid, days, "ancWkPop" + week, qidDayPop, formatter, curDateTime, rankTuples);
+                        }
+                        if (rankProject.isMonthPopularRank()) {//人气月榜
+                            int days = 1;
+                            int dayOfMonth = curDateTime.dayOfMonth().get();
+                            days = dayOfMonth > daySize ? daySize : dayOfMonth;
+                            String month = monthFor.print(curDateTime);
+                            addRankTuple(split, qid, days, "ancMthPop" + month, qidDayPop, formatter, curDateTime, rankTuples);
+                        }
                     }
-                    if (rankProject.isMonthPopularRank()) {//人气月榜
-                        int days = 1;
-                        int dayOfMonth = curDateTime.dayOfMonth().get();
-                        days = dayOfMonth > daySize ? daySize : dayOfMonth;
-                        String month = monthFor.print(curDateTime);
-                        addRankTuple(split, qid, days, "ancMthPop" + month, qidDayPop, formatter, curDateTime, rankTuples);
+                    logger.info("rankTuples.size:" + rankTuples.size());
+                    for (Tuple3<String, Long, String> tuple : rankTuples) {
+                        pipelined.zadd(tuple._1(), tuple._2(), tuple._3());
+                        logger.info("pipelined.zadd key=" + tuple._1() + "; value:" + tuple._2() + " " + tuple._2());
                     }
-                }
-                logger.info("rankTuples.size:" + rankTuples.size());
-                for (Tuple3<String, Long, String> tuple : rankTuples) {
-                    pipelined.zadd(tuple._1(), tuple._2(), tuple._3());
-                    logger.info("pipelined.zadd key=" + tuple._1() + "; value:" + tuple._2() + " " + tuple._2());
-                }
-                pipelined = jedis.pipelined();
-                pipelined.sync();
-                pipelined.close();
-                jedis.close();
-            });
-            ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
+                    pipelined = jedis.pipelined();
+                    pipelined.sync();
+                    pipelined.close();
+                    jedis.close();
+                });
+                ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
         ssc.start();
         ssc.awaitTermination();
