@@ -120,7 +120,6 @@ public class RankPopular {
                         keys.add(new StringBuffer(tuple3._1()).append(":").append(tuple3._2()).toString());
                     }
                     pipelined.sync();
-                    pipelined.close();
                     List<Tuple3<String, Long, String>> rankTuples = new ArrayList<>();
                     DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyyMMdd");
                     DateTimeFormatter monthFor = DateTimeFormat.forPattern("yyyyMM");
@@ -155,14 +154,51 @@ public class RankPopular {
                         }
                     }
                     logger.info("rankTuples.size:" + rankTuples.size());
+                    Set<Tuple3<String, String, String>> newResult = new HashSet<>();
                     for (Tuple3<String, Long, String> tuple : rankTuples) {
                         pipelined.zadd(tuple._1(), tuple._2(), tuple._3());
                         logger.info("pipelined.zadd key=" + tuple._1() + "; value:" + tuple._2() + " " + tuple._2());
+                        String[] split = tuple._1().split(":");
+                        if (split.length != 4) {
+                            continue;
+                        }
+                        String newKey = "";
+                        if (rankProjectMap.get(split[1]).getFlag() == 1) {
+                            newKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":signUp:").append(split[2]).append(":").append(split[3]).toString();
+                            newResult.add(new Tuple3<String, String, String>(tuple._1(), newKey, tuple._3()));
+                            logger.info("newResult.add(new Tuple3<String, String, String>(" + tuple._1() + "," + newKey + "," + tuple._3() + ")");
+                        }
                     }
-                    pipelined = jedis.pipelined();
                     pipelined.sync();
-                    pipelined.close();
-                    jedis.close();
+                    if (null != pipelined) {
+                        pipelined.close();
+                    }
+                    List<Tuple3<String, Double, String>> singUpRecords = null;
+                    for (Tuple3<String, String, String> tuple3 : newResult) {
+                        String project = tuple3._1().split(":")[1];
+                        if (jedis.sismember("hostpool:" + project, tuple3._3())) {
+                            Double zscore = jedis.zscore(tuple3._1(), tuple3._3());
+                            if (null == singUpRecords) {
+                                singUpRecords = new ArrayList<>();
+                            }
+                            singUpRecords.add(new Tuple3<>(tuple3._2(), zscore, tuple3._3()));
+                            logger.info("singUpRecords.add(new Tuple3<>(" + tuple3._2() + "," + zscore + "," + tuple3._3() + ")");
+                        }
+                    }
+                    if (null != singUpRecords) {
+                        pipelined = jedis.pipelined();
+                        for (Tuple3<String, Double, String> tuple3 : singUpRecords) {
+                            pipelined.zadd(tuple3._1(), tuple3._2(), tuple3._3());
+                            logger.info("pipelined.zadd(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3());
+                        }
+                        pipelined.sync();
+                        if (null != pipelined) {
+                            pipelined.close();
+                        }
+                    }
+                    if (null != jedis) {
+                        jedis.close();
+                    }
                 });
                 ((CanCommitOffsets) message.inputDStream()).commitAsync(offsetRanges);
             } catch (Exception e) {
@@ -208,9 +244,9 @@ public class RankPopular {
         if (rankProject.getCates().size() > 0 && !rankProject.getCates().contains(cate)) {
             return;
         }
-        if (rankProject.getFlag() == 1 && !jedis.sismember("hostpool:" + rankProject.getProject(), sp.getHostId())) {//报名或者提供主播列表方式
-            return;
-        }
+//        if (rankProject.getFlag() == 1 && !jedis.sismember("hostpool:" + rankProject.getProject(), sp.getHostId())) {//报名或者提供主播列表方式
+//            return;
+//        }
         String day = "";
         String week = "";
         try {

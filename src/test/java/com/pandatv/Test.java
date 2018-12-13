@@ -6,15 +6,18 @@ import com.pandatv.bean.RankProject;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Pipeline;
-import redis.clients.jedis.Tuple;
+import redis.clients.jedis.*;
+import redis.clients.jedis.params.geo.GeoRadiusParam;
+import scala.Tuple2;
+import scala.Tuple3;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.io.InputStreamReader;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +35,8 @@ public class Test {
         ObjectMapper mapper = new ObjectMapper();
         HashMap hashMap = mapper.readValue(str, HashMap.class);
         System.out.println(hashMap);
+        GeoRadiusParam radiusParam = GeoRadiusParam.geoRadiusParam().withCoord().withDist().sortAscending();
+        List<GeoRadiusResponse> geoRadiusResponses = jedis.georadiusByMember("geo_test", "company", 20.0, GeoUnit.KM, radiusParam);
 
         jedis.close();
     }
@@ -118,6 +123,84 @@ public class Test {
         RankProject rankProject = new RankProject();
         List<String> giftIds = new ArrayList<>();
         rankProject.setGiftIds(giftIds);
+
+    }
+
+    @org.junit.Test
+    public void test9() throws IOException, InterruptedException {
+        Set<Tuple3<String, String, String>> sets = new HashSet<>();
+        Tuple3<String, String, String> tuple3 = new Tuple3<>("1", "1", "1");
+        Tuple3<String, String, String> tuple3_2 = new Tuple3<>("1", "1", "1");
+        sets.add(tuple3);
+        sets.add(tuple3_2);
+        System.out.println(sets.size());
+    }
+
+    @org.junit.Test
+    public void test10() throws IOException, InterruptedException {
+        Jedis jedis = new Jedis("localhost", 6379);
+        double res = 0.0;
+        Double zscore = jedis.zscore("panda:rastakhan:ancPop:rank", "3086284");
+        double v = zscore.doubleValue();
+        if (null == zscore) {
+            res = 0.0;
+        } else {
+            res = zscore;
+        }
+        jedis.close();
+    }
+
+    @org.junit.Test
+    public void test11() throws IOException, InterruptedException, ParseException {
+        String substring = "1544630316:c".substring(11);
+        BufferedReader bf = new BufferedReader(new InputStreamReader(new FileInputStream("/Users/likaiqing/Downloads/client_online_147819952.log")));
+        String l = null;
+        Set<Tuple2<String, String>> list = new HashSet<>();
+        while ((l = bf.readLine()) != null) {
+            int timeIndex = l.indexOf("[");
+            String timeStr = l.substring(timeIndex + 1, l.indexOf("]", timeIndex));
+            long timeU = new SimpleDateFormat("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH).parse(timeStr).getTime() / 1000;
+            int uidIndex = l.indexOf("uid=");
+            int uidEndIndex1 = l.indexOf("&", uidIndex);
+            int uidEndIndex2 = l.indexOf(" ", uidIndex);
+            int uidEndIndex = 0;
+            if (uidEndIndex1 < 0) {
+                uidEndIndex = uidEndIndex2;
+            } else {
+                uidEndIndex = uidEndIndex1;
+            }
+            String uid = l.substring(uidIndex + 4, uidEndIndex);
+            String flag = "p";
+            if (l.contains("GET /client_punch.gif?")) {
+                flag = "c";
+                int roomIdIndex = l.indexOf("rid=");
+                int roomIdIndex1 = l.indexOf("&", roomIdIndex);
+                int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
+                int roomIdEndIndex = 0;
+                if (roomIdIndex1 < 0) {
+                    roomIdEndIndex = roomIdIndex2;
+                } else {
+                    roomIdEndIndex = roomIdIndex1;
+                }
+                String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
+                System.out.println(roomId + "," + uid + "-" + timeU + ":" + flag);
+                list.add(new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag));
+                continue;
+            }
+            int uIndex = l.indexOf("u=");
+            String url = l.substring(uIndex + 2, l.indexOf(".flv", uIndex));//此处不适合client_online
+            String urlPart = url.split("live_panda%2F")[1];
+            String stream = null;
+            if (urlPart.contains("_")) {
+                stream = urlPart.split("_")[0];
+            } else {
+                stream = urlPart;
+            }
+            list.add(new Tuple2<String, String>(stream, uid + "-" + timeU + ":" + flag));
+            System.out.println(stream);
+        }
+        System.out.println(list.size());
+        System.out.println(list);
 
     }
 }

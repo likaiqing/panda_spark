@@ -25,6 +25,7 @@ import org.apache.spark.streaming.kafka010.LocationStrategies;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Tuple;
+import redis.clients.jedis.exceptions.JedisConnectionException;
 import scala.Tuple2;
 
 import java.text.SimpleDateFormat;
@@ -227,13 +228,15 @@ public class UserWatchDuration {
                     String stream = streams.get(i);
                     String roomId = roomIds.get(i);
                     if (StringUtils.isEmpty(roomId)) {
-//                        logger.warn("stream:" + stream + ";对应的roomId:" + roomId);
+                        logger.warn("stream:" + stream + ";对应的roomId:" + roomId);
                         continue;
                     }
                     res.add(new Tuple2<String, String>(roomId, streamMap.get(stream)));
                 }
+            } catch (JedisConnectionException jce) {
+                jce.printStackTrace();
             } catch (Exception e) {
-//                logger.error("mapPartitionsToPair," + e.getMessage());
+                logger.error("mapPartitionsToPair," + e.getMessage());
             } finally {
                 if (null != jedis) {
                     jedis.close();
@@ -256,7 +259,7 @@ public class UserWatchDuration {
                 String[] uidTimeuArr = kv._2.split(",");
                 Tuple[] tuples = jedis.zrevrangeWithScores(new StringBuffer("room:changecla:").append(roomId).toString(), 0, -1).toArray(new Tuple[]{});
                 if (tuples.length == 0) {
-//                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到");
+//                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到,kv._2:" + kv._2);
                 } else {
                     List<String> catesValue = catesBroadcast.value();
                     for (int i = 0; i < uidTimeuArr.length; i++) {
@@ -277,7 +280,7 @@ public class UserWatchDuration {
                         if (StringUtils.isNotEmpty(cate) && catesValue.contains(cate)) {
                             String flag = arr[1].substring(10);
                             long formatLogTimeU = logTimeU / 60 * 60;
-                            if (flag.equals("p")) {//pc打点，一分钟一条
+                            if (flag.contains("p")) {//pc打点，一分钟一条
                                 uidTimeuList.add(new Tuple2<String, Long>(uid, formatLogTimeU));
                             } else {//客户端2分钟一条,加上前一分钟
                                 uidTimeuList.add(new Tuple2<String, Long>(uid, formatLogTimeU - 60));

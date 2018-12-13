@@ -67,6 +67,7 @@ public class RankGift {
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
     private static int redisPort = 6974;
 
+    private static String maxRatePerPartition = "500";
 
     /**
      * 指定topic即可，榜单项目通过redis进行配置，定期去更新项目广播变量,cates为空的话，代表所有版区
@@ -85,7 +86,7 @@ public class RankGift {
             initParams(map);
         }
         SparkConf conf = new SparkConf().setAppName("rank_gift");
-        conf.set("spark.streaming.kafka.maxRatePerPartition", "100");
+        conf.set("spark.streaming.kafka.maxRatePerPartition", maxRatePerPartition);
         /**
          * //TODO 使用checkpoint
          */
@@ -130,13 +131,50 @@ public class RankGift {
                             executeSingleProject(jedis, entry, giftInfo, giftInfo.getQid(), day, week, result);
                         }
                     }
+                    Set<Tuple3<String, String, String>> newResult = new HashSet<>();
                     Pipeline pipelined = jedis.pipelined();
                     for (Tuple3<String, Double, String> tuple3 : result) {
                         pipelined.zincrby(tuple3._1(), tuple3._2(), tuple3._3());
+                        logger.info("pipelined.zincrby(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3() + ")");
+                        String key = tuple3._1();
+                        String qid = tuple3._3();
+                        String[] split = key.split(":");
+                        if (split.length != 4) {
+                            continue;
+                        }
+                        String newKey = "";
+                        if (rankProjectMap.get(split[1]).getFlag() == 1) {
+                            newKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":signUp:").append(split[2]).append(":").append(split[3]).toString();
+                            newResult.add(new Tuple3<String, String, String>(key, newKey, qid));
+                            logger.info("newResult.add(new Tuple3<String, String, String>(" + key + "," + newKey + "," + qid + ")");
+                        }
                     }
                     pipelined.sync();
                     if (null != pipelined) {
                         pipelined.close();
+                    }
+                    List<Tuple3<String, Double, String>> singUpRecords = null;
+                    for (Tuple3<String, String, String> tuple3 : newResult) {
+                        String project = tuple3._1().split(":")[1];
+                        if (jedis.sismember("hostpool:" + project, tuple3._3())) {
+                            Double zscore = jedis.zscore(tuple3._1(), tuple3._3());
+                            if (null == singUpRecords) {
+                                singUpRecords = new ArrayList<>();
+                            }
+                            singUpRecords.add(new Tuple3<>(tuple3._2(), zscore, tuple3._3()));
+                            logger.info("singUpRecords.add(new Tuple3<>(" + tuple3._2() + "," + zscore + "," + tuple3._3() + ")");
+                        }
+                    }
+                    if (null != singUpRecords) {
+                        pipelined = jedis.pipelined();
+                        for (Tuple3<String, Double, String> tuple3 : singUpRecords) {
+                            pipelined.zadd(tuple3._1(), tuple3._2(), tuple3._3());
+                            logger.info("pipelined.zadd(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3());
+                        }
+                        pipelined.sync();
+                        if (null != pipelined) {
+                            pipelined.close();
+                        }
                     }
                     if (null != jedis) {
                         jedis.close();
@@ -321,9 +359,9 @@ public class RankGift {
         /**
          * 只要不是按开播统计(主播固定的方式)统计，都是以主播加入列表的时间统计,computeNew
          */
-        if (rankProject.getFlag() == 1 && !jedis.sismember("hostpool:" + rankProject.getProject(), qid)) {//报名或者提供主播列表方式
-            return;
-        }
+//        if (rankProject.getFlag() == 1 && !jedis.sismember("hostpool:" + rankProject.getProject(), qid)) {//报名或者提供主播列表方式
+//            return;
+//        }
         String group = null;
         if (rankProject.getFlag() == 2) {
             if (!jedis.hexists("hostmap:" + rankProject.getProject(), qid)) {

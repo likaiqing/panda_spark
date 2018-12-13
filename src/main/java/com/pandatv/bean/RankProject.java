@@ -33,7 +33,7 @@ public class RankProject implements Serializable {
     private boolean daySpecificRank;//代表活动期间按天统计的特殊礼物榜单
     private boolean weekSpecificRank;//代表活动期间按周统计的特殊礼物榜单
     private boolean monthSpecificRank;//代表活动期间按月统计的特殊礼物榜单
-    private int flag;//0:开播有记录即统计，1:主播名单固定方式，前端报名的方式会使用flag=0,接口过滤报名的主播，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
+    private int flag;//0:开播有记录即统计，1:主播名单固定方式、报名的方式falg=1,之前接口过滤取消，hostpool:{project},2:分组报名方式，hostpool:{project}:groups用来存组表示，hostpool:{project}:group:{group}只有此处用-分隔，兼容业务
 //    private Set<String> qids = new HashSet<>();
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
 //    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
