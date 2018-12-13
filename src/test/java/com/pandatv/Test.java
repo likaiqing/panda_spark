@@ -152,6 +152,8 @@ public class Test {
 
     @org.junit.Test
     public void test11() throws IOException, InterruptedException, ParseException {
+        boolean contains = "abc".contains("");
+
         String substring = "1544630316:c".substring(11);
         BufferedReader bf = new BufferedReader(new InputStreamReader(new FileInputStream("/Users/likaiqing/Downloads/client_online_147819952.log")));
         String l = null;
@@ -173,19 +175,19 @@ public class Test {
             String flag = "p";
             if (l.contains("GET /client_punch.gif?")) {
                 flag = "c";
-                int roomIdIndex = l.indexOf("rid=");
-                int roomIdIndex1 = l.indexOf("&", roomIdIndex);
-                int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
-                int roomIdEndIndex = 0;
-                if (roomIdIndex1 < 0) {
-                    roomIdEndIndex = roomIdIndex2;
-                } else {
-                    roomIdEndIndex = roomIdIndex1;
-                }
-                String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
-                System.out.println(roomId + "," + uid + "-" + timeU + ":" + flag);
-                list.add(new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag));
-                continue;
+//                int roomIdIndex = l.indexOf("rid=");
+//                int roomIdIndex1 = l.indexOf("&", roomIdIndex);
+//                int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
+//                int roomIdEndIndex = 0;
+//                if (roomIdIndex1 < 0) {
+//                    roomIdEndIndex = roomIdIndex2;
+//                } else {
+//                    roomIdEndIndex = roomIdIndex1;
+//                }
+//                String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
+//                System.out.println(roomId + "," + uid + "-" + timeU + ":" + flag);
+//                list.add(new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag));
+//                continue;
             }
             int uIndex = l.indexOf("u=");
             String url = l.substring(uIndex + 2, l.indexOf(".flv", uIndex));//此处不适合client_online

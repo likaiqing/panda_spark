@@ -140,17 +140,17 @@ public class UserWatchDuration {
                 String uid = l.substring(uidIndex + 4, uidEndIndex);
                 if (l.contains("GET /client_punch.gif?")) {
                     flag = "c";
-                    int roomIdIndex = l.indexOf("rid=");
-                    int roomIdIndex1 = l.indexOf("&", roomIdIndex);
-                    int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
-                    int roomIdEndIndex = 0;
-                    if (roomIdIndex1 < 0) {
-                        roomIdEndIndex = roomIdIndex2;
-                    } else {
-                        roomIdEndIndex = roomIdIndex1;
-                    }
-                    String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
-                    return new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag);
+//                    int roomIdIndex = l.indexOf("rid=");
+//                    int roomIdIndex1 = l.indexOf("&", roomIdIndex);
+//                    int roomIdIndex2 = l.indexOf(" ", roomIdIndex);
+//                    int roomIdEndIndex = 0;
+//                    if (roomIdIndex1 < 0) {
+//                        roomIdEndIndex = roomIdIndex2;
+//                    } else {
+//                        roomIdEndIndex = roomIdIndex1;
+//                    }
+//                    String roomId = l.substring(roomIdIndex + 4, roomIdEndIndex);
+//                    return new Tuple2<String, String>(roomId, uid + "-" + timeU + ":" + flag);
                 }
                 int uIndex = l.indexOf("u=");
                 String url = l.substring(uIndex + 2, l.indexOf(".flv", uIndex));//此处不适合client_online
@@ -203,10 +203,10 @@ public class UserWatchDuration {
                 while (kv.hasNext()) {
                     Tuple2<String, String> next = kv.next();
                     String stream = next._1;
-                    if (next._2.contains(":c")) {//是client_online
-                        res.add(new Tuple2<String, String>(stream, next._2));
-                        continue;
-                    }
+//                    if (next._2.contains(":c")) {//是client_online
+//                        res.add(new Tuple2<String, String>(stream, next._2));
+//                        continue;
+//                    }
                     streamMap.put(stream, next._2);
 //                if (streamRoomIdMapValue.containsKey(stream)) {
 //                    res.add(new Tuple2<String, String>(streamRoomIdMapValue.get(stream), next._2));
