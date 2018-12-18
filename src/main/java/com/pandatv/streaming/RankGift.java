@@ -66,6 +66,7 @@ public class RankGift {
     private static String redisHost = "10.131.11.151";
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
     private static int redisPort = 6974;
+    private static String name = "rank_gift";
 
     private static String maxRatePerPartition = "500";
 
@@ -85,7 +86,7 @@ public class RankGift {
             Map<String, String> map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
             initParams(map);
         }
-        SparkConf conf = new SparkConf().setAppName("rank_gift");
+        SparkConf conf = new SparkConf().setAppName(name);
         conf.set("spark.streaming.kafka.maxRatePerPartition", maxRatePerPartition);
         /**
          * //TODO 使用checkpoint
@@ -468,6 +469,9 @@ public class RankGift {
         }
         if (map.containsKey("bootServers")) {
             bootServers = map.get("bootServers");
+        }
+        if (map.containsKey("name")) {
+            name = map.get("name");
         }
         logger.info("groupId:" + groupId);
     }
