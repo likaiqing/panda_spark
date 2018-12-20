@@ -39,22 +39,15 @@ public class ChangeCla {
     private static String redisPwd = "Hdx03DqyIwOSrEDU";
     private static int redisPort = 6974;
 
+//    private static String topic = "panda_realtime_panda_classify_stream";
+//    private static String groupId = "streaming_changecate";
+
     //    private static RedisClient redisClient;//如果有内部类，使用到此变量使用全局变量(定时更新某些广播变量的线程)
     public static void main(String[] args) throws InterruptedException {
-        Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put("bootstrap.servers", "10.131.6.79:9092");
-        kafkaParams.put("key.deserializer", StringDeserializer.class);
-        kafkaParams.put("value.deserializer", StringDeserializer.class);
-        kafkaParams.put("group.id", "streaming_changecate");
-        kafkaParams.put("auto.offset.reset", "latest");
-        kafkaParams.put("enable.auto.commit", false);
-        SparkConf conf = new SparkConf().setAppName("panda_classify_stream");
-        JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(1));
-
-        JavaSparkContext context = ssc.sparkContext();
-
         Map<String, String> map = new HashMap<>();
-        if (args.length > 0) {
+        String topic = "panda_realtime_panda_classify_stream";
+        if (args.length > 1) {
+            topic = args[0];
             map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
         }
         /**
@@ -63,11 +56,25 @@ public class ChangeCla {
         redisHost = map.getOrDefault("redisHost", "10.131.11.151");
         redisPwd = map.getOrDefault("redisPwd", "Hdx03DqyIwOSrEDU");
         redisPort = Integer.parseInt(map.getOrDefault("redisPort", "6974"));
+        String groupId = map.getOrDefault("groupId", "streaming_changecate");
+        String appName = map.getOrDefault("name", "panda_classify_stream");
+
+        Map<String, Object> kafkaParams = new HashMap<>();
+        kafkaParams.put("bootstrap.servers", "10.131.6.79:9092");
+        kafkaParams.put("key.deserializer", StringDeserializer.class);
+        kafkaParams.put("value.deserializer", StringDeserializer.class);
+        kafkaParams.put("group.id", groupId);
+        kafkaParams.put("auto.offset.reset", "latest");
+        kafkaParams.put("enable.auto.commit", false);
+        SparkConf conf = new SparkConf().setAppName(appName);
+        JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(1));
+
+        JavaSparkContext context = ssc.sparkContext();
         Broadcast<String> redisHostBroadcast = context.broadcast(redisHost);
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
 
-        String[] topics = map.getOrDefault("topics", "panda_realtime_panda_classify_stream").split("-");
+        String[] topics = map.getOrDefault("topics", topic).split("-");
         JavaInputDStream<ConsumerRecord<Object, Object>> message = KafkaUtils.createDirectStream(
                 ssc,
                 LocationStrategies.PreferConsistent(),
