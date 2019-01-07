@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author: likaiqing
@@ -203,6 +204,13 @@ public class Test {
         }
         System.out.println(list.size());
         System.out.println(list);
+        ReentrantLock lock = new ReentrantLock();
+    }
 
+    @org.junit.Test
+    public void test12(){
+        DateTime dateTime = new DateTime();
+        int week = dateTime.weekOfWeekyear().get();
+        System.out.println(week);
     }
 }

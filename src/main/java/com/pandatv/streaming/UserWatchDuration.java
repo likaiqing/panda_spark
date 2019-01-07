@@ -79,7 +79,7 @@ public class UserWatchDuration {
         Broadcast<Long> endTimeUBroadcast = context.broadcast(Long.parseLong(map.getOrDefault("endTimeU", "1539594752")));
         Broadcast<List<String>> catesBroadcast = context.broadcast(Arrays.asList(map.getOrDefault("cates", "default").split("-")));
 
-        Broadcast<Integer> dayMinutesBroadcast = context.broadcast(Integer.parseInt(map.getOrDefault("dayMinutes", "180")));
+        Broadcast<Integer> dayMinutesBroadcast = context.broadcast(Integer.parseInt(map.getOrDefault("dayMinutes", "170")));
 
         if (map.containsKey("groupId")) {
             groupId = map.get("groupId");
@@ -312,7 +312,7 @@ public class UserWatchDuration {
                         jedis.auth(redisPwd);
                     }
                     Pipeline pipelined = jedis.pipelined();
-                    Set<String> uids = new HashSet<>();//uids不能再foreachRDD内使用，foreachPartition相当于foreachRDD的匿名函数，不能修改uids
+//                    Set<String> uids = new HashSet<>();//uids不能再foreachRDD内使用，foreachPartition相当于foreachRDD的匿名函数，不能修改uids
                     Set<String> keys = new HashSet<>();
                     while (it.hasNext()) {
                         Tuple2<String, Iterable<Long>> next = it.next();
@@ -324,7 +324,7 @@ public class UserWatchDuration {
                             String day = dayFormat.format(new Date(next1 * 1000l));
                             String key = new StringBuffer(projectBroadcast.value()).append(":user:dur:pf:").append(uid).append(":").append(day).toString();
                             keys.add(key);
-                            pipelined.pfadd(key, String.valueOf(next1));
+                            pipelined.sadd(key, String.valueOf(next1));//hyperloglog改为set
                             pipelined.expire(key, 604800);//7天
                         }
                     }
@@ -333,7 +333,7 @@ public class UserWatchDuration {
 
                     ObjectMapper mapper = null;
                     for (String key : keys) {
-                        long pfcount = jedis.pfcount(key);
+                        long pfcount = jedis.scard(key);//hyperloglog改为set
                         if (pfcount >= dayMinutesBroadcast.value()) {
                             String[] keySplit = key.split(":");
                             String uid = keySplit[keySplit.length - 2];
