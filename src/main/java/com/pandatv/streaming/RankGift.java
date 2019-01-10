@@ -144,7 +144,8 @@ public class RankGift {
                             continue;
                         }
                         String newKey = "";
-                        if (rankProjectMap.get(split[1]).getFlag() == 1) {
+                        //u2q不包含在内
+                        if (rankProjectMap.get(split[1]).getFlag() == 1 && !split[2].contains("u2q")) {
                             newKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":signUp:").append(split[2]).append(":").append(split[3]).toString();
                             newResult.add(new Tuple3<String, String, String>(key, newKey, qid));
                             logger.info("newResult.add(new Tuple3<String, String, String>(" + key + "," + newKey + "," + qid + ")");
@@ -265,6 +266,9 @@ public class RankGift {
                 if (paramMap.containsKey("specificExtraRate")) {
                     rankProject.setSpecificExtraRate(Double.parseDouble(paramMap.get("specificExtraRate")));
                 }
+                if (paramMap.containsKey("u2q")) {
+                    rankProject.setU2q(Boolean.parseBoolean(paramMap.get("u2q")));
+                }
 
                 int flag = Integer.parseInt(paramMap.get("flag"));
                 rankProject.setFlag(flag);
@@ -384,34 +388,59 @@ public class RankGift {
         if (rankProject.isAllRank()) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancAlGf").append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrAlGf").append(":rank").toString(), tmpTotal, uid));
+            //统计用户对主播的送礼榜单
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("AlGf").append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancSpecGf").append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrSpecGf").append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("SpecGf").append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isDayAllRank()) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDyAlGf").append(day).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDyAlGf").append(day).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("DyAlGf").append(day).append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isDaySpecificRank() && rankProject.getGiftIds().contains(giftId)) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancDySpecGf").append(day).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrDySpecGf").append(day).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("DySpecGf").append(day).append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isWeekAllRank()) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkAlGf").append(week).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkAlGf").append(week).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("WkAlGf").append(week).append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isWeekSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancWkSpecGf").append(week).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrWkSpecGf").append(week).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("WkSpecGf").append(week).append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isMonthAllRank()) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthAlGf").append(month).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthAlGf").append(month).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("MthAlGf").append(month).append(":rank").toString(), tmpTotal, uid));
+            }
         }
         if (rankProject.isMonthSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancMthSpecGf").append(month).append(":rank").toString(), tmpTotal, qid));
             result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrMthSpecGf").append(month).append(":rank").toString(), tmpTotal, uid));
+            if (rankProject.isU2q()) {
+                result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("u2q").append(qid).append("MthSpecGf").append(month).append(":rank").toString(), tmpTotal, uid));
+            }
         }
 
         if (rankProject.getFlag() == 2) {//按分组报名方式
