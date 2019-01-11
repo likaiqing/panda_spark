@@ -1,6 +1,8 @@
 package com.pandatv;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
+import redis.clients.jedis.Jedis;
 
 import java.util.Objects;
 
@@ -24,8 +26,15 @@ public class Test2 {
         System.out.println(str);
         System.out.println(str==str1);
         System.out.println(str.equals(str1));
+
     }
 
+    @Test
+    public void test2() {
+        Jedis jedis = new Jedis("localhost", 6379);
+        String[] strings = jedis.zrevrange("panda:lolnewyear:u2q108636218MthAlGf201901:rank", 0, 0).toArray(new String[]{});
+        System.out.println(strings[0]);
+    }
     private String changeStr(String str) {
         str = new String("likaiqing");
         return str;
