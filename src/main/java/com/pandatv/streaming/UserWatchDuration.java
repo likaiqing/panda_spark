@@ -67,7 +67,7 @@ public class UserWatchDuration {
         }
         Map<String, String> map = Splitter.on(",").withKeyValueSeparator("=").split(args[1]);
 
-        SparkConf conf = new SparkConf().setAppName("UserWatchDuration");
+        SparkConf conf = new SparkConf().setAppName(map.getOrDefault("name", "uwd"));
         conf.set("spark.streaming.kafka.maxRatePerPartition", "1500");
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(10));
 
