@@ -3,6 +3,11 @@ package com.pandatv;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pandatv.bean.RankProject;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -140,13 +145,15 @@ public class Test {
     @org.junit.Test
     public void test10() throws IOException, InterruptedException {
         Jedis jedis = new Jedis("localhost", 6379);
-        double res = 0.0;
-        Double zscore = jedis.zscore("panda:rastakhan:ancPop:rank", "3086284");
-        double v = zscore.doubleValue();
-        if (null == zscore) {
-            res = 0.0;
-        } else {
-            res = zscore;
+        Set<String> set = new HashSet<>();
+        set.add("test1");
+        set.add("test2");
+        set.add("test3");
+        set.add("test4");
+        String[] keys = set.stream().toArray(String[]::new);
+        List<String> mget = jedis.mget(keys);
+        for (String s : mget) {
+            System.out.println(s);
         }
         jedis.close();
     }
@@ -208,9 +215,55 @@ public class Test {
     }
 
     @org.junit.Test
-    public void test12(){
+    public void test12() {
         DateTime dateTime = new DateTime();
         int week = dateTime.weekOfWeekyear().get();
         System.out.println(week);
+    }
+
+    @org.junit.Test
+    public void test13() throws IOException, InterruptedException {
+        Set<String> newQids = new HashSet<>();
+        newQids.add("23175476");
+        newQids.add("23233766");
+        newQids.add("92349566");
+        ObjectMapper mapper = new ObjectMapper();
+        String json = getBatchUserInfo(newQids.stream().reduce((a, b) -> a + "," + b).get());
+        JsonNode jsonNode = mapper.readTree(json);
+        JsonNode dataNode = jsonNode.get("data");
+        String s = jsonNode.get("data").get("23175476").get("level").asText();
+        if (null != dataNode) {
+            JsonNode jsonNode1 = dataNode.get("23175476");
+            JsonNode jsonNode2 = dataNode.get("23233766");
+        }
+    }
+
+    private static String getBatchUserInfo(String rids) throws IOException {
+//        String url = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
+        String url = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
+        HttpClient client = HttpClientBuilder.create().build();
+        HttpGet request = new HttpGet(url);
+
+        //添加请求头
+        request.addHeader("User-Agent", "Mozilla/5.0");
+
+        HttpResponse response = client.execute(request);
+
+        return EntityUtils.toString(response.getEntity(), "utf-8");
+    }
+
+    @org.junit.Test
+    public void test14() throws IOException, InterruptedException {
+        Set<String> set1 = new HashSet<>();
+        set1.add("a1");
+        set1.add("b");
+        set1.add("c1");
+        Set<String> set2 = new HashSet<>();
+        set2.add("a");
+        set2.add("d");
+        set2.add("c");
+        set2.add("e");
+        boolean b = set1.retainAll(set2);
+        System.out.println(set1);
     }
 }

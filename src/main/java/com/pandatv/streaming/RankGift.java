@@ -5,7 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.pandatv.bean.GiftInfo;
 import com.pandatv.bean.RankProject;
+import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.log4j.LogManager;
@@ -119,6 +125,7 @@ public class RankGift {
                     }
                     ObjectMapper mapper = new ObjectMapper();
                     List<Tuple3<String, Double, String>> result = new ArrayList<>();
+                    Map<String, String> qidRoomIdMap = new HashedMap();
                     while (p.hasNext()) {
                         String next = p.next();
                         logger.info("next:" + next);
@@ -129,11 +136,13 @@ public class RankGift {
                         int week = dateTime.weekOfWeekyear().get();
                         for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
                             logger.info("executeSingleProject,project:" + entry.getValue());
-                            executeSingleProject(jedis, entry, giftInfo, giftInfo.getQid(), day, week, result);
+                            executeSingleProject(jedis, entry, giftInfo, giftInfo.getQid(), day, week, result, qidRoomIdMap);
                         }
                     }
                     Set<Tuple3<String, String, String>> newResult = new HashSet<>();
                     Set<Tuple3<String, String, String>> u2qResult = new HashSet<>();
+                    Map<String, Set<String>> keyQidsMap = new HashMap<>();//缓存用户信息panda:detail:usr:{rid}:info,根据排名绝对是否缓存，主播需要roomId
+                    Map<String, Set<String>> keyRidsMap = new HashMap<>();//缓存用户信息panda:detail:usr:{rid}:info,根据排名绝对是否缓存，用户不需要roomId
                     Pipeline pipelined = jedis.pipelined();
                     for (Tuple3<String, Double, String> tuple3 : result) {
                         pipelined.zincrby(tuple3._1(), tuple3._2(), tuple3._3());
@@ -145,6 +154,7 @@ public class RankGift {
                         if (split.length != 4) {
                             continue;
                         }
+                        editIdsMap(key, qid, keyQidsMap, keyRidsMap);
                         String newKey = "";
                         //u2q不包含在内
                         if (rankProjectMap.get(split[1]).getFlag() == 1 && !split[2].contains("u2q")) {
@@ -180,6 +190,7 @@ public class RankGift {
                         if (!jedis.sismember("hostpool:" + project, tuple3._3())) {
                             continue;
                         }
+                        //获取主播榜中第一名用户
                         String[] strings = jedis.zrevrange(tuple3._1(), 0, 0).toArray(new String[]{});
                         if (strings.length == 0) continue;
                         if (u2qList == null) {
@@ -196,11 +207,18 @@ public class RankGift {
                             pipelined.zadd(tuple3._1(), tuple3._2(), tuple3._3());
                             pipelined.expire(tuple3._1(), 7776000);
                             logger.info("pipelined.zadd(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3());
+                            editIdsMap(tuple3._1(), tuple3._3(), keyQidsMap, keyQidsMap);
                         }
                     }
+                    Set<String> needQids = new HashSet<>();//需要更新缓存信息的
+                    Set<String> needRids = new HashSet<>();//需要更新缓存信息的
+                    //u2q对应的qids和rids，直接更新，不在做复杂判断
                     if (null != u2qList) {
                         for (Tuple3<String, String, String> tuple3 : u2qList) {
                             pipelined.hset(tuple3._1(), tuple3._2(), tuple3._3());
+                            //panda:lolnewyear:u2qMthAlGf201901:map,qid,uid
+                            needQids.add(tuple3._2());
+                            needRids.add(tuple3._3());
                         }
                     }
                     if (null != singUpRecords || null != u2qList) {
@@ -208,6 +226,28 @@ public class RankGift {
                     }
                     if (null != pipelined) {
                         pipelined.close();
+                    }
+                    try {
+                        //根据榜单是否在前100名决定是否更新
+                        for (Map.Entry<String, Set<String>> entry : keyQidsMap.entrySet()) {
+                            String rankKey = entry.getKey();
+                            Set<String> qids = entry.getValue();
+                            Set<String> rankRids = jedis.zrevrange(rankKey, 0, 100);
+                            qids.retainAll(rankRids);//rids为两个set的交集
+                            needQids.addAll(qids);
+                        }
+                        for (Map.Entry<String, Set<String>> entry : keyRidsMap.entrySet()) {
+                            String rankKey = entry.getKey();
+                            Set<String> rids = entry.getValue();
+                            Set<String> rankRids = jedis.zrevrange(rankKey, 0, 100);
+                            rids.retainAll(rankRids);//rids为两个set的交集
+                            needRids.addAll(rids);
+                        }
+                        //设置用户信息
+                        setBatchUserInfo(needQids, jedis, mapper, qidRoomIdMap, true);
+                        setBatchUserInfo(needRids, jedis, mapper, qidRoomIdMap, false);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                     if (null != jedis) {
                         jedis.close();
@@ -222,6 +262,92 @@ public class RankGift {
         ssc.start();
         ssc.awaitTermination();
 
+    }
+
+    /**
+     * 更新keyQidsMap,keyRidsMap
+     *
+     * @param key
+     * @param qid
+     * @param keyQidsMap
+     * @param keyRidsMap
+     */
+    private static void editIdsMap(String key, String qid, Map<String, Set<String>> keyQidsMap, Map<String, Set<String>> keyRidsMap) {
+        if (key.contains("anc")) {
+            Set<String> qids = null;
+            if (keyQidsMap.containsKey(key)) {
+                qids = keyQidsMap.get(key);
+            } else {
+                qids = new HashSet<>();
+                keyQidsMap.put(key, qids);
+            }
+            qids.add(qid);
+        } else if (key.contains("usr")) {
+            Set<String> rids = null;
+            if (keyRidsMap.containsKey(key)) {
+                rids = keyRidsMap.get(key);
+            } else {
+                rids = new HashSet<>();
+                keyRidsMap.put(key, rids);
+            }
+            rids.add(qid);
+        }
+    }
+
+    private static void setBatchUserInfo(Set<String> qids, Jedis jedis, ObjectMapper mapper, Map<String, String> qidRoomIdMap, boolean isAnchor) {
+//        Set<String> newRids = new HashSet<>();
+//        for (String qid : qids) {
+//            if (jedis.exists(new StringBuffer("panda:detail:usr:").append(qid).append(":info").toString())) {
+//                continue;
+//            }
+//            newRids.add(qid);
+//        }
+        if (qids.size() > 0) {
+            try {
+                String rids = qids.stream().reduce((a, b) -> a + "," + b).get();
+                String detailUrl = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
+                String detailJson = getBatchUserLevel(detailUrl);
+                String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
+                String levelJson = getBatchUserLevel(levelUrl);
+                logger.info("json:" + detailJson);
+                JsonNode detailJsonNode = mapper.readTree(detailJson);
+                JsonNode levelJsonNode = mapper.readTree(levelJson);
+                JsonNode dataNode = detailJsonNode.get("data");//data和子节点rid不为空，rid与rid不一致说明没有数据
+                Pipeline pipelined = jedis.pipelined();
+                for (String newRid : qids) {
+                    JsonNode detailNode = dataNode.get(newRid);
+                    if (newRid.equalsIgnoreCase(detailNode.get("rid").asText())) {
+                        Map<String, String> map = new HashedMap();
+                        map.put("rid", newRid);
+                        map.put("nickName", detailNode.get("nickName").asText());
+                        map.put("avatar", detailNode.get("avatar").asText());
+                        map.put("level", levelJsonNode.get("data").get(newRid).get("level").asText());
+                        if (isAnchor) {
+                            map.put("roomId", qidRoomIdMap.get(newRid));
+                        } else {
+                            map.put("roomId", "");
+                        }
+                        pipelined.set(new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString(), mapper.writeValueAsString(map));
+                    }
+                }
+                pipelined.sync();
+                pipelined.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private static String getBatchUserLevel(String url) throws IOException {
+        HttpClient client = HttpClientBuilder.create().build();
+        HttpGet request = new HttpGet(url);
+
+        //添加请求头
+        request.addHeader("User-Agent", "Mozilla/5.0");
+
+        HttpResponse response = client.execute(request);
+
+        return EntityUtils.toString(response.getEntity(), "utf-8");
     }
 
     private static Map<String, RankProject> getProjectMap() {
@@ -373,7 +499,7 @@ public class RankGift {
         return giftInfo;
     }
 
-    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, String qid, String day, int week, List<Tuple3<String, Double, String>> result) throws IOException {
+    private static void executeSingleProject(Jedis jedis, Map.Entry<String, RankProject> entry, GiftInfo giftInfo, String qid, String day, int week, List<Tuple3<String, Double, String>> result, Map<String, String> qidRoomIdMap) throws IOException {
         RankProject rankProject = entry.getValue();
         long startTimeU = rankProject.getStartTimeU();
         long endTimeU = rankProject.getEndTimeU();
@@ -384,6 +510,7 @@ public class RankGift {
         String giftId = giftInfo.getGiftId();
         String uid = giftInfo.getUid();
         String month = day.substring(0, 6);
+        qidRoomIdMap.put(qid, roomId);
         if (timeU < startTimeU || timeU > endTimeU) {
             return;
         }
