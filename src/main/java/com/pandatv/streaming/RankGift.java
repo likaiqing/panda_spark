@@ -295,16 +295,16 @@ public class RankGift {
     }
 
     private static void setBatchUserInfo(Set<String> qids, Jedis jedis, ObjectMapper mapper, Map<String, String> qidRoomIdMap, boolean isAnchor) {
-//        Set<String> newRids = new HashSet<>();
-//        for (String qid : qids) {
-//            if (jedis.exists(new StringBuffer("panda:detail:usr:").append(qid).append(":info").toString())) {
-//                continue;
-//            }
-//            newRids.add(qid);
-//        }
-        if (qids.size() > 0) {
+        Set<String> newRids = new HashSet<>();
+        for (String qid : qids) {
+            if (jedis.exists(new StringBuffer("panda:detail:usr:").append(qid).append(":info").toString())) {
+                continue;
+            }
+            newRids.add(qid);
+        }
+        if (newRids.size() > 0) {
             try {
-                String rids = qids.stream().reduce((a, b) -> a + "," + b).get();
+                String rids = newRids.stream().reduce((a, b) -> a + "," + b).get();
                 String detailUrl = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
                 String detailJson = getBatchUserLevel(detailUrl);
                 String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
@@ -314,7 +314,7 @@ public class RankGift {
                 JsonNode levelJsonNode = mapper.readTree(levelJson);
                 JsonNode dataNode = detailJsonNode.get("data");//data和子节点rid不为空，rid与rid不一致说明没有数据
                 Pipeline pipelined = jedis.pipelined();
-                for (String newRid : qids) {
+                for (String newRid : newRids) {
                     JsonNode detailNode = dataNode.get(newRid);
                     if (newRid.equalsIgnoreCase(detailNode.get("rid").asText())) {
                         Map<String, String> map = new HashedMap();
@@ -327,7 +327,9 @@ public class RankGift {
                         } else {
                             map.put("roomId", "");
                         }
-                        pipelined.set(new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString(), mapper.writeValueAsString(map));
+                        String detailKey = new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString();
+                        pipelined.set(detailKey, mapper.writeValueAsString(map));
+                        pipelined.expire(detailKey, 86000);
                     }
                 }
                 pipelined.sync();
