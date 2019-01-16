@@ -146,7 +146,7 @@ public class RankGift {
                     Pipeline pipelined = jedis.pipelined();
                     for (Tuple3<String, Double, String> tuple3 : result) {
                         pipelined.zincrby(tuple3._1(), tuple3._2(), tuple3._3());
-                        pipelined.expire(tuple3._1(), 7776000);
+                        pipelined.expire(tuple3._1(), 7776000);//90天
                         logger.info("pipelined.zincrby(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3() + ")");
                         String key = tuple3._1();
                         String qid = tuple3._3();
@@ -154,14 +154,16 @@ public class RankGift {
                         if (split.length != 4) {
                             continue;
                         }
+                        //生成此次处理相关key对应的所有qid和rid
                         editIdsMap(key, qid, keyQidsMap, keyRidsMap);
                         String newKey = "";
-                        //u2q不包含在内
+                        //u2q不包含在内,生成报名主播的榜单
                         if (rankProjectMap.get(split[1]).getFlag() == 1 && !split[2].contains("u2q")) {
                             newKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":signUp:").append(split[2]).append(":").append(split[3]).toString();
                             newResult.add(new Tuple3<String, String, String>(key, newKey, qid));
                             logger.info("newResult.add(new Tuple3<String, String, String>(" + key + "," + newKey + "," + qid + ")");
                         }
+                        //每个主播对应用户送礼的榜单
                         if (split[2].contains("u2q")) {
                             String tmpQid = split[2].substring(3, split[2].indexOf("_"));
                             if (StringUtils.isEmpty(tmpQid)) continue;
@@ -173,6 +175,7 @@ public class RankGift {
                         pipelined.close();
                     }
                     List<Tuple3<String, Double, String>> singUpRecords = null;
+                    //主播报名相关的主播榜，用户榜中间处理
                     for (Tuple3<String, String, String> tuple3 : newResult) {
                         String project = tuple3._1().split(":")[1];
                         if (jedis.sismember("hostpool:" + project, tuple3._3())) {
@@ -207,18 +210,21 @@ public class RankGift {
                             pipelined.zadd(tuple3._1(), tuple3._2(), tuple3._3());
                             pipelined.expire(tuple3._1(), 7776000);
                             logger.info("pipelined.zadd(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3());
+                            //报名方式，主播用户相关key加入qid,rid
                             editIdsMap(tuple3._1(), tuple3._3(), keyQidsMap, keyQidsMap);
                         }
                     }
-                    Set<String> needQids = new HashSet<>();//需要更新缓存信息的
-                    Set<String> needRids = new HashSet<>();//需要更新缓存信息的
+                    Set<String> needInfoQids = new HashSet<>();//需要更新缓存信息的
+                    Set<String> needInfoRids = new HashSet<>();//需要更新缓存信息的
+                    Set<String> needLevelRids = new HashSet<>();//需要更新缓存level的
                     //u2q对应的qids和rids，直接更新，不在做复杂判断
                     if (null != u2qList) {
                         for (Tuple3<String, String, String> tuple3 : u2qList) {
                             pipelined.hset(tuple3._1(), tuple3._2(), tuple3._3());
                             //panda:lolnewyear:u2qMthAlGf201901:map,qid,uid
-                            needQids.add(tuple3._2());
-                            needRids.add(tuple3._3());
+                            needInfoQids.add(tuple3._2());
+                            needInfoRids.add(tuple3._3());
+                            needLevelRids.add(tuple3._3());
                         }
                     }
                     if (null != singUpRecords || null != u2qList) {
@@ -234,18 +240,29 @@ public class RankGift {
                             Set<String> qids = entry.getValue();
                             Set<String> rankRids = jedis.zrevrange(rankKey, 0, 100);
                             qids.retainAll(rankRids);//rids为两个set的交集
-                            needQids.addAll(qids);
+                            needInfoQids.addAll(qids);
                         }
                         for (Map.Entry<String, Set<String>> entry : keyRidsMap.entrySet()) {
                             String rankKey = entry.getKey();
                             Set<String> rids = entry.getValue();
                             Set<String> rankRids = jedis.zrevrange(rankKey, 0, 100);
                             rids.retainAll(rankRids);//rids为两个set的交集
-                            needRids.addAll(rids);
+                            needInfoRids.addAll(rids);
+                            if (rankProjectMap.get(rankKey.split(":")[1]).isUserLevel()) {
+                                needLevelRids.addAll(rids);
+                            }
                         }
                         //设置用户信息
-                        setBatchUserInfo(needQids, jedis, mapper, qidRoomIdMap, true);
-                        setBatchUserInfo(needRids, jedis, mapper, qidRoomIdMap, false);
+                        if (needInfoQids.size() > 0) {
+                            setBatchUserInfo(needInfoQids, jedis, mapper, qidRoomIdMap, true);
+                        }
+                        if (needInfoRids.size() > 0) {
+                            setBatchUserInfo(needInfoRids, jedis, mapper, qidRoomIdMap, false);
+                        }
+                        //设置用户level，没有主播
+                        if (needLevelRids.size() > 0) {
+                            setBatchLevel(needLevelRids, jedis, mapper);
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -262,6 +279,20 @@ public class RankGift {
         ssc.start();
         ssc.awaitTermination();
 
+    }
+
+    private static void setBatchLevel(Set<String> rids, Jedis jedis, ObjectMapper mapper) throws IOException {
+        String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
+        String levelJson = getBatchUserLevel(levelUrl);
+        JsonNode levelJsonNode = mapper.readTree(levelJson);
+        Pipeline pipelined = jedis.pipelined();
+        for (String rid : rids) {
+            String key = new StringBuffer("panda:level:usr:").append(rid).toString();
+            pipelined.set(key, levelJsonNode.get("data").get(rid).get("level").asText());
+            pipelined.expire(key, 86000 * 40);
+        }
+        pipelined.sync();
+        pipelined.close();
     }
 
     /**
@@ -307,11 +338,8 @@ public class RankGift {
                 String rids = newRids.stream().reduce((a, b) -> a + "," + b).get();
                 String detailUrl = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
                 String detailJson = getBatchUserLevel(detailUrl);
-                String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
-                String levelJson = getBatchUserLevel(levelUrl);
                 logger.info("json:" + detailJson);
                 JsonNode detailJsonNode = mapper.readTree(detailJson);
-                JsonNode levelJsonNode = mapper.readTree(levelJson);
                 JsonNode dataNode = detailJsonNode.get("data");//data和子节点rid不为空，rid与rid不一致说明没有数据
                 Pipeline pipelined = jedis.pipelined();
                 for (String newRid : newRids) {
@@ -321,7 +349,6 @@ public class RankGift {
                         map.put("rid", newRid);
                         map.put("nickName", detailNode.get("nickName").asText());
                         map.put("avatar", detailNode.get("avatar").asText());
-                        map.put("level", levelJsonNode.get("data").get(newRid).get("level").asText());
                         if (isAnchor) {
                             map.put("roomId", qidRoomIdMap.get(newRid));
                         } else {
@@ -329,7 +356,7 @@ public class RankGift {
                         }
                         String detailKey = new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString();
                         pipelined.set(detailKey, mapper.writeValueAsString(map));
-                        pipelined.expire(detailKey, 86000);
+                        pipelined.expire(detailKey, 86000 * 40);
                     }
                 }
                 pipelined.sync();
@@ -427,6 +454,9 @@ public class RankGift {
                 }
                 if (paramMap.containsKey("u2q")) {
                     rankProject.setU2q(Boolean.parseBoolean(paramMap.get("u2q")));
+                }
+                if (paramMap.containsKey("userLevel")) {
+                    rankProject.setUserLevel(Boolean.parseBoolean(paramMap.get("userLevel")));
                 }
 
                 int flag = Integer.parseInt(paramMap.get("flag"));

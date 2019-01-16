@@ -38,9 +38,19 @@ public class RankProject implements Serializable {
     //    private Map<String, Set<String>> groupAnchorsMap = new HashMap<>();//每个组对应的主播列表
 //    private Map<String, String> anchor2GroupMap = new HashMap<>();//主播对应的组
 
+    private boolean userLevel;
+
     private boolean u2q;//用户对主播qid的送礼榜单,目前只支持flag=0,1的情况
 
     private boolean online;
+
+    public boolean isUserLevel() {
+        return userLevel;
+    }
+
+    public void setUserLevel(boolean userLevel) {
+        this.userLevel = userLevel;
+    }
 
     public boolean isU2q() {
         return u2q;
