@@ -240,7 +240,8 @@ public class Test {
 
     private static String getBatchUserInfo(String rids) throws IOException {
 //        String url = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
-        String url = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
+//        String url = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
+        String url = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=123,12323,43243";
         HttpClient client = HttpClientBuilder.create().build();
         HttpGet request = new HttpGet(url);
 
@@ -250,6 +251,25 @@ public class Test {
         HttpResponse response = client.execute(request);
 
         return EntityUtils.toString(response.getEntity(), "utf-8");
+    }
+
+    @org.junit.Test
+    public void test18() throws IOException {
+        String url = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=123,12323,43243";
+        HttpClient client = HttpClientBuilder.create().build();
+        HttpGet request = new HttpGet(url);
+
+        //添加请求头
+        request.addHeader("User-Agent", "Mozilla/5.0");
+
+        HttpResponse response = client.execute(request);
+
+        String result = EntityUtils.toString(response.getEntity(), "utf-8");
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode levelJsonNode = mapper.readTree(result);
+        String l = levelJsonNode.get("data").get("123").get("level").asText();
+        System.out.println(l);
+
     }
 
     @org.junit.Test
@@ -265,5 +285,15 @@ public class Test {
         set2.add("e");
         boolean b = set1.retainAll(set2);
         System.out.println(set1);
+    }
+
+    @org.junit.Test
+    public void test15() throws IOException, InterruptedException {
+
+        Math.abs(-0.23);
+        RankProject rankProject = new RankProject();
+        Map<String, String> map = new HashMap<>();
+        rankProject.setWeekPopularRank(Boolean.parseBoolean(map.get("weekPopularRank")));
+        System.out.println(rankProject);
     }
 }

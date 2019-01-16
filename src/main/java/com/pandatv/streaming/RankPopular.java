@@ -5,7 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.pandatv.bean.RankProject;
 import com.pandatv.bean.ShadowPopularity;
+import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.log4j.LogManager;
@@ -25,6 +31,7 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import scala.Tuple3;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -37,6 +44,7 @@ public class RankPopular {
     private static final Logger logger = LogManager.getLogger(RankPopular.class);
 
     private static String maxRatePerPartition = "500";
+    private static String name;
 
     //测试环境
 //    private static String redisHost = "10.131.7.48";
@@ -69,7 +77,7 @@ public class RankPopular {
         String sha = jedis1.scriptLoad("local res=0 if redis.call('HEXISTS',KEYS[1],ARGV[1])==1 then local payload=redis.call('HGET',KEYS[1],ARGV[1]) if tonumber(ARGV[2])>tonumber(payload) then redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]) res=1 else res=0 end else redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]) res=1 end return res");
         jedis1.close();
         System.out.println("sha:" + sha);
-        SparkConf conf = new SparkConf().setAppName("popular_rank");
+        SparkConf conf = new SparkConf().setAppName(name);
         conf.set("spark.streaming.kafka.maxRatePerPartition", maxRatePerPartition);
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(1));
 
@@ -99,11 +107,13 @@ public class RankPopular {
                     List<Tuple3<String, String, String>> result = new ArrayList<>();
                     DateTimeFormatter parse = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
                     DateTimeFormatter format = DateTimeFormat.forPattern("yyyyMMdd");
+                    Map<String, String> qidRoomIdMap = new HashedMap();
 //                Pipeline pipelined = jedis.pipelined();
                     while (p.hasNext()) {
                         String next = p.next();
                         logger.info("next:" + next);
                         ShadowPopularity sp = getShadowPopularity(next, mapper);
+                        qidRoomIdMap.put(sp.getHostId(), sp.getRoomId());
                         for (Map.Entry<String, RankProject> entry : rankProjectMap.entrySet()) {
                             logger.info("executeSingleProject,project:" + entry.getValue());
                             executeSinglePojectPopular(jedis, entry, sp, result, parse, format);
@@ -154,6 +164,7 @@ public class RankPopular {
                         }
                     }
                     logger.info("rankTuples.size:" + rankTuples.size());
+                    Map<String, Set<String>> keyQidsMap = new HashMap<>();
                     Set<Tuple3<String, String, String>> newResult = new HashSet<>();
                     for (Tuple3<String, Long, String> tuple : rankTuples) {
                         pipelined.zadd(tuple._1(), tuple._2(), tuple._3());
@@ -162,6 +173,14 @@ public class RankPopular {
                         if (split.length != 4) {
                             continue;
                         }
+                        Set<String> qids = null;
+                        if (keyQidsMap.containsKey(tuple._1())) {
+                            qids = keyQidsMap.get(tuple._1());
+                        } else {
+                            qids = new HashSet<>();
+                            keyQidsMap.put(tuple._1(), qids);
+                        }
+                        qids.add(tuple._3());
                         String newKey = "";
                         if (rankProjectMap.get(split[1]).getFlag() == 1) {
                             newKey = new StringBuffer(split[0]).append(":").append(split[1]).append(":signUp:").append(split[2]).append(":").append(split[3]).toString();
@@ -190,11 +209,36 @@ public class RankPopular {
                         for (Tuple3<String, Double, String> tuple3 : singUpRecords) {
                             pipelined.zadd(tuple3._1(), tuple3._2(), tuple3._3());
                             logger.info("pipelined.zadd(" + tuple3._1() + "," + tuple3._2() + "," + tuple3._3());
+                            Set<String> qids = null;
+                            if (keyQidsMap.containsKey(tuple3._1())) {
+                                qids = keyQidsMap.get(tuple3._1());
+                            } else {
+                                qids = new HashSet<>();
+                                keyQidsMap.put(tuple3._1(), qids);
+                            }
+                            qids.add(tuple3._3());
                         }
                         pipelined.sync();
                         if (null != pipelined) {
                             pipelined.close();
                         }
+                    }
+                    try {
+                        if (keyQidsMap.size() > 0) {
+                            Set<String> needInfoQids = new HashSet<>();//需要更新缓存信息的
+                            for (Map.Entry<String, Set<String>> entry : keyQidsMap.entrySet()) {
+                                String key = entry.getKey();
+                                Set<String> qids = entry.getValue();
+                                Set<String> rankQids = jedis.zrevrange(key, 0, 100);
+                                qids.retainAll(rankQids);
+                                needInfoQids.addAll(qids);
+                            }
+                            if (needInfoQids.size() > 0) {
+                                setBatchUserInfo(needInfoQids, jedis, mapper, qidRoomIdMap, true);
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                     if (null != jedis) {
                         jedis.close();
@@ -208,6 +252,62 @@ public class RankPopular {
         ssc.start();
         ssc.awaitTermination();
     }
+
+
+    private static void setBatchUserInfo(Set<String> qids, Jedis jedis, ObjectMapper mapper, Map<String, String> qidRoomIdMap, boolean isAnchor) {
+        Set<String> newRids = new HashSet<>();
+        for (String qid : qids) {
+            if (jedis.exists(new StringBuffer("panda:detail:usr:").append(qid).append(":info").toString())) {
+                continue;
+            }
+            newRids.add(qid);
+        }
+        if (newRids.size() > 0) {
+            try {
+                String rids = newRids.stream().reduce((a, b) -> a + "," + b).get();
+                String detailUrl = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
+                String detailJson = httpGet(detailUrl);
+                logger.info("json:" + detailJson);
+                JsonNode detailJsonNode = mapper.readTree(detailJson);
+                JsonNode dataNode = detailJsonNode.get("data");//data和子节点rid不为空，rid与rid不一致说明没有数据
+                Pipeline pipelined = jedis.pipelined();
+                for (String newRid : newRids) {
+                    JsonNode detailNode = dataNode.get(newRid);
+                    if (newRid.equalsIgnoreCase(detailNode.get("rid").asText())) {
+                        Map<String, String> map = new HashedMap();
+                        map.put("rid", newRid);
+                        map.put("nickName", detailNode.get("nickName").asText());
+                        map.put("avatar", detailNode.get("avatar").asText());
+                        if (isAnchor) {
+                            map.put("roomId", qidRoomIdMap.get(newRid));
+                        } else {
+                            map.put("roomId", "");
+                        }
+                        String detailKey = new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString();
+                        pipelined.set(detailKey, mapper.writeValueAsString(map));
+                        pipelined.expire(detailKey, 86000 * 40);
+                    }
+                }
+                pipelined.sync();
+                pipelined.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private static String httpGet(String url) throws IOException {
+        HttpClient client = HttpClientBuilder.create().build();
+        HttpGet request = new HttpGet(url);
+
+        //添加请求头
+        request.addHeader("User-Agent", "Mozilla/5.0");
+
+        HttpResponse response = client.execute(request);
+
+        return EntityUtils.toString(response.getEntity(), "utf-8");
+    }
+
 
     private static void addRankTuple(String[] split, String qid, int days, String rankFlag, Map<String, String> qidDayPop, DateTimeFormatter formatter, DateTime curDateTime, List<Tuple3<String, Long, String>> rankTuples) {
         long avgPop = 0;
@@ -321,6 +421,7 @@ public class RankPopular {
                 rankProject.setWeekPopularRank(Boolean.parseBoolean(paramMap.get("weekPopularRank")));
                 rankProject.setMonthPopularRank(Boolean.parseBoolean(paramMap.get("monthPopularRank")));
                 rankProject.setFlag(flag);
+                rankProject.setUserLevel(Boolean.parseBoolean(paramMap.get("userLevel")));
                 projectsMap.put(key, rankProject);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -352,9 +453,9 @@ public class RankPopular {
             groupId = map.get("groupId");
         }
         //暂时不通过配置方式，因为包含逗号
-//        if (map.containsKey("bootServers")) {
-//            bootServers = map.get("bootServers");
-//        }
+        if (map.containsKey("bootServers")) {
+            bootServers = map.get("bootServers");
+        }
         if (map.containsKey("redisHost")) {
             redisHost = map.get("redisHost");
         }
@@ -367,6 +468,7 @@ public class RankPopular {
         if (map.containsKey("maxRatePerPartition")) {
             maxRatePerPartition = map.getOrDefault("maxRatePerPartition", "500");
         }
+        name = map.getOrDefault("name", "popular_rank");
         logger.info("groupId:" + groupId + ";maxRatePerPartition:" + maxRatePerPartition);
     }
 }

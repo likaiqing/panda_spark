@@ -282,14 +282,21 @@ public class RankGift {
     }
 
     private static void setBatchLevel(Set<String> rids, Jedis jedis, ObjectMapper mapper) throws IOException {
-        String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + rids;
-        String levelJson = getBatchUserLevel(levelUrl);
+        String ridStr = rids.stream().reduce((a, b) -> a + "," + b).get();
+        String levelUrl = "http://count.pdtv.io:8360/number/pcgame_pandatv/user_exp/list?rids=" + ridStr;
+        String levelJson = httpGet(levelUrl);
         JsonNode levelJsonNode = mapper.readTree(levelJson);
         Pipeline pipelined = jedis.pipelined();
         for (String rid : rids) {
+            if (StringUtils.isEmpty(rid)) continue;
             String key = new StringBuffer("panda:level:usr:").append(rid).toString();
-            pipelined.set(key, levelJsonNode.get("data").get(rid).get("level").asText());
-            pipelined.expire(key, 86000 * 40);
+            try {
+                pipelined.set(key, levelJsonNode.get("data").get(rid).get("level").asText());
+                pipelined.expire(key, 86000 * 40);
+            } catch (NullPointerException e) {
+                e.printStackTrace();
+                logger.error("url:" + levelUrl + ";levelJson:" + levelJson);
+            }
         }
         pipelined.sync();
         pipelined.close();
@@ -337,7 +344,7 @@ public class RankGift {
             try {
                 String rids = newRids.stream().reduce((a, b) -> a + "," + b).get();
                 String detailUrl = "http://u.pdtv.io:8360/profile/getavatarornickbyrids?rids=" + rids;
-                String detailJson = getBatchUserLevel(detailUrl);
+                String detailJson = httpGet(detailUrl);
                 logger.info("json:" + detailJson);
                 JsonNode detailJsonNode = mapper.readTree(detailJson);
                 JsonNode dataNode = detailJsonNode.get("data");//data和子节点rid不为空，rid与rid不一致说明没有数据
@@ -367,7 +374,7 @@ public class RankGift {
         }
     }
 
-    private static String getBatchUserLevel(String url) throws IOException {
+    private static String httpGet(String url) throws IOException {
         HttpClient client = HttpClientBuilder.create().build();
         HttpGet request = new HttpGet(url);
 
@@ -569,7 +576,7 @@ public class RankGift {
         }
         double tmpTotal = Double.parseDouble(total);
         try {
-            if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId) && rankProject.getSpecificExtraRate() > 0) {
+            if (rankProject.isSpecificExtraAdd() && rankProject.getGiftIds().size() > 0 && rankProject.getGiftIds().contains(giftId) && Math.abs(rankProject.getSpecificExtraRate()) < 1) {
                 tmpTotal = tmpTotal * (1 + rankProject.getSpecificExtraRate());
             }
         } catch (Exception e) {
@@ -638,7 +645,7 @@ public class RankGift {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "AlGf").append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "AlGf").append(":rank").toString(), tmpTotal, uid));
             }
-            if (rankProject.isSpecificRank()) {
+            if (rankProject.isSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "SpecGf").append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "SpecGf").append(":rank").toString(), tmpTotal, uid));
             }
@@ -646,7 +653,7 @@ public class RankGift {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DyAlGf" + day).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DyAlGf" + day).append(":rank").toString(), tmpTotal, uid));
             }
-            if (rankProject.isDaySpecificRank()) {
+            if (rankProject.isDaySpecificRank() && rankProject.getGiftIds().contains(giftId)) {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "DySpecGf" + day).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "DySpecGf" + day).append(":rank").toString(), tmpTotal, uid));
             }
@@ -654,7 +661,7 @@ public class RankGift {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkAlGf" + week).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkAlGf" + week).append(":rank").toString(), tmpTotal, uid));
             }
-            if (rankProject.isWeekSpecificRank()) {
+            if (rankProject.isWeekSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "WkSpecGf" + week).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "WkSpecGf" + week).append(":rank").toString(), tmpTotal, uid));
             }
@@ -662,7 +669,7 @@ public class RankGift {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthAlGf" + month).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthAlGf" + month).append(":rank").toString(), tmpTotal, uid));
             }
-            if (rankProject.isMonthSpecificRank()) {
+            if (rankProject.isMonthSpecificRank() && rankProject.getGiftIds().contains(giftId)) {
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("ancGrp" + group + "MthSpecGf" + month).append(":rank").toString(), tmpTotal, qid));
                 result.add(new Tuple3<>(new StringBuffer("panda:").append(rankProject.getProject()).append(":").append("usrGrp" + group + "MthSpecGf" + month).append(":rank").toString(), tmpTotal, uid));
             }
