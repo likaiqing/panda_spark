@@ -259,7 +259,7 @@ public class UserWatchDuration {
                 String[] uidTimeuArr = kv._2.split(",");
                 Tuple[] tuples = jedis.zrevrangeWithScores(new StringBuffer("room:changecla:").append(roomId).toString(), 0, -1).toArray(new Tuple[]{});
                 if (tuples.length == 0) {
-//                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到,kv._2:" + kv._2);
+                    logger.warn("roomId:" + roomId + ",对应的切换版区数据在redis查询不到,kv._2:" + kv._2);
                 } else {
                     List<String> catesValue = catesBroadcast.value();
                     for (int i = 0; i < uidTimeuArr.length; i++) {

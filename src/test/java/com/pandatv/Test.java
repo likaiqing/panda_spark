@@ -145,6 +145,7 @@ public class Test {
     @org.junit.Test
     public void test10() throws IOException, InterruptedException {
         Jedis jedis = new Jedis("localhost", 6379);
+        Tuple[] tuples = jedis.zrevrangeWithScores(new StringBuffer("room:changecla:").append("123").toString(), 0, -1).toArray(new Tuple[]{});
         Set<String> set = new HashSet<>();
         set.add("test1");
         set.add("test2");
