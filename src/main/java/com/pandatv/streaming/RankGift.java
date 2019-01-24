@@ -352,17 +352,18 @@ public class RankGift {
                 for (String newRid : newRids) {
                     JsonNode detailNode = dataNode.get(newRid);
                     if (newRid.equalsIgnoreCase(detailNode.get("rid").asText())) {
+                        String detailKey = new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString();
                         Map<String, String> map = new HashedMap();
                         map.put("rid", newRid);
                         map.put("nickName", detailNode.get("nickName").asText());
                         map.put("avatar", detailNode.get("avatar").asText());
-                        if (isAnchor) {
+                        if (qidRoomIdMap.containsKey(newRid) || isAnchor) {
                             map.put("roomId", qidRoomIdMap.get(newRid));
+                            pipelined.set(detailKey, mapper.writeValueAsString(map));
                         } else {
                             map.put("roomId", "");
+                            pipelined.setnx(detailKey, mapper.writeValueAsString(map));
                         }
-                        String detailKey = new StringBuffer("panda:detail:usr:").append(newRid).append(":info").toString();
-                        pipelined.set(detailKey, mapper.writeValueAsString(map));
                         pipelined.expire(detailKey, 86000 * 40);
                     }
                 }
