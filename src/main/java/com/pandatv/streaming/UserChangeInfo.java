@@ -31,6 +31,8 @@ public class UserChangeInfo {
     public static void main(String[] args) throws InterruptedException {
         SparkConf conf = new SparkConf().setAppName("user_change_info");
         conf.set("spark.streaming.kafka.maxRatePerPartition", "100");
+        conf.set("spark.streaming.stopGracefullyOnShutdown","true");//ss -tanlp |  grep 55197|awk '{print $6}'|awk  -F, '{print $2}'|xargs kill -15
+        //spark on yarn模式下，默认的情况driver程序的挂了，会自动再重启一次，作为高可用，也就是上面的操作 你可能要执行两次，才能真能的停掉程序，当然我们也可以设置驱动程序一次挂掉之后，就真的挂掉了，这样就没有容灾机制了，需要慎重考虑：--conf spark.yarn.maxAppAttempts=1
         /**
          * //TODO 使用checkpoint
          */

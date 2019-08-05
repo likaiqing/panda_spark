@@ -21,7 +21,7 @@ object KafkaOffsetsBlogStreamingDriver {
       System.err.println("Usage: KafkaDirectStreamTest <batch-duration-in-seconds> <kafka-bootstrap-servers> " +
         "<kafka-topics> <kafka-consumer-group-id> <hbase-table-name> <kafka-zookeeper-quorum>")
       System.exit(1)
-      //1 10.131.6.79:9092 panda_realtime_client_online_test_filechannel_2 hbase_offset_test kafka_offset localhost:2181
+      //1 localhost:9092 panda_realtime_client_online_test_filechannel_2 hbase_offset_test kafka_offset localhost:2181
     }
 
     val batchDuration = args(0)

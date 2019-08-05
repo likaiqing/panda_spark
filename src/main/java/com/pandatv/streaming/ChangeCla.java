@@ -1,6 +1,7 @@
 package com.pandatv.streaming;
 
 import com.google.common.base.Splitter;
+import com.pandatv.tools.RedisClient;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -42,7 +43,8 @@ public class ChangeCla {
 //    private static String topic = "panda_realtime_panda_classify_stream";
 //    private static String groupId = "streaming_changecate";
 
-    //    private static RedisClient redisClient;//如果有内部类，使用到此变量使用全局变量(定时更新某些广播变量的线程)
+    private static RedisClient redisClient;//如果有内部类，使用到此变量使用全局变量(定时更新某些广播变量的线程)
+
     public static void main(String[] args) throws InterruptedException {
         Map<String, String> map = new HashMap<>();
         String topic = "panda_realtime_panda_classify_stream";
@@ -74,6 +76,8 @@ public class ChangeCla {
         Broadcast<Integer> redisPortBroadcast = context.broadcast(redisPort);
         Broadcast<String> redisPwdBroadcast = context.broadcast(redisPwd);
 
+        redisClient = new RedisClient("localhost", 6379);
+        Broadcast<RedisClient> redisBroadcast = context.broadcast(redisClient);
         String[] topics = map.getOrDefault("topics", topic).split("-");
         JavaInputDStream<ConsumerRecord<Object, Object>> message = KafkaUtils.createDirectStream(
                 ssc,
@@ -93,6 +97,7 @@ public class ChangeCla {
                     if (StringUtils.isNotEmpty(redisPwdBroadcast.value())) {
                         jedis.auth(redisPwdBroadcast.value());
                     }
+//                    Jedis jedis1 = redisBroadcast.getValue().getResource();
                     Pipeline pipelined = jedis.pipelined();
                     SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                     while (par.hasNext()) {

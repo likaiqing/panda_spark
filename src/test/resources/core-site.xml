@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration><property>
+	<name>fs.cosn.block.size</name>
+	<value>1048576</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.hadoop.hosts</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.logfile.count</name>
+	<value>20</value>
+</property>
+<property>
+	<name>hadoop.logfile.size</name>
+	<value>1000000000</value>
+</property>
+<property>
+	<name>hadoop.proxyuser.hadoop.groups</name>
+	<value>*</value>
+</property>
+<property>
+	<name>hadoop.tmp.dir</name>
+	<value>/data/emr/hdfs/tmp</value>
+</property>
+<property>
+	<name>fs.cos.userinfo.useCDN</name>
+	<value>false</value>
+</property>
+<property>
+	<name>fs.cosn.impl</name>
+	<value>org.apache.hadoop.fs.cosnative.NativeCosFileSystem</value>
+</property>
+<property>
+	<name>fs.defaultFS</name>
+	<value>hdfs://HDFS80223</value>
+</property>
+<property>
+	<name>hadoop.http.staticuser.user</name>
+	<value>hadoop</value>
+</property>
+<property>
+	<name>fs.trash.interval</name>
+	<value>1440</value>
+</property>
+</configuration>

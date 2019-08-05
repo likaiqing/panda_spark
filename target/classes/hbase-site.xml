@@ -1,131 +1,32 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<configuration><property>
-	<name>hbase.hstore.flusher.count</name>
-	<value>8</value>
-</property>
-<property>
-	<name>hbase.regionserver.thread.compaction.large</name>
-	<value>6</value>
-</property>
-<property>
-	<name>hbase.storescanner.parallel.seek.threads</name>
-	<value>20</value>
-</property>
-<property>
-	<name>hbase.master.hostname</name>
-	<value>10.131.6.45</value>
-</property>
-<property>
-	<name>hbase.thrift.info.port</name>
-	<value>6005</value>
-</property>
-<property>
-	<name>hbase.regionserver.thrift.port</name>
-	<value>6004</value>
-</property>
-<property>
-	<name>hbase.hregion.memstore.block.multiplier</name>
-	<value>2</value>
-</property>
-<property>
-	<name>hbase.hstore.blockingStoreFiles</name>
-	<value>64</value>
-</property>
-<property>
-	<name>hbase.rootdir</name>
-	<value>hdfs://HDFS80223/hbase</value>
-</property>
-<property>
-	<name>hbase.zookeeper.quorum</name>
-	<value>10.131.6.12,10.131.6.3,10.131.6.16</value>
-</property>
-<property>
-	<name>hbase.master.info.port</name>
-	<value>6001</value>
-</property>
-<property>
-	<name>hbase.client.scanner.timeout.period</name>
-	<value>900000</value>
-</property>
-<property>
-	<name>hbase.hregion.memstore.flush.size</name>
-	<value>134217728</value>
-</property>
-<property>
-	<name>hbase.regionserver.handler.count</name>
-	<value>128</value>
-</property>
-<property>
-	<name>hbase.regionserver.thread.compaction.small</name>
-	<value>10</value>
-</property>
-<property>
-	<name>hbase.regionserver.wal.max.splitters</name>
-	<value>8</value>
-</property>
-<property>
-	<name>dfs.client.use.datanode.hostname</name>
-	<value>false</value>
-</property>
-<property>
-	<name>hbase.regionserver.executor.closeregion.threads</name>
-	<value>20</value>
-</property>
-<property>
-	<name>hbase.regionserver.executor.openregion.threads</name>
-	<value>20</value>
-</property>
-<property>
-	<name>hbase.zookeeper.property.clientPort</name>
-	<value>2181</value>
-</property>
-<property>
-	<name>dfs.client.failover.proxy.provider.HDFS80223</name>
-	<value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
-</property>
-<property>
-	<name>hbase.hregion.max.filesize</name>
-	<value>10737418240</value>
-</property>
-<property>
-	<name>hbase.hstore.blockingWaitTime</name>
-	<value>60000</value>
-</property>
-<property>
-	<name>hbase.ipc.server.max.callqueue.size</name>
-	<value>2147483647</value>
-</property>
-<property>
-	<name>hbase.master.port</name>
-	<value>6000</value>
-</property>
-<property>
-	<name>hbase.coprocessor.master.classes</name>
-	<value>org.apache.ranger.authorization.hbase.RangerAuthorizationCoprocessor</value>
-</property>
-<property>
-	<name>hbase.coprocessor.region.classes</name>
-	<value>org.apache.ranger.authorization.hbase.RangerAuthorizationCoprocessor</value>
-</property>
-<property>
-	<name>hbase.cluster.distributed</name>
-	<value>true</value>
-</property>
-<property>
-	<name>hbase.hstore.compaction.max</name>
-	<value>30</value>
-</property>
-<property>
-	<name>hbase.security.authorization</name>
-	<value>false</value>
-</property>
-<property>
-	<name>hbase.server.thread.wakefrequency</name>
-	<value>2000</value>
-</property>
-<property>
-	<name>hbase.superuser</name>
-	<value>hadoop</value>
-</property>
+<!--
+/**
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<configuration>
+ <property>
+   <name>hbase.cluster.distributed</name>
+   <value>true</value>
+ </property>
+ <property>
+   <name>hbase.rootdir</name>
+   <value>hdfs://localhost:9000/hbase</value>
+ </property>
 </configuration>

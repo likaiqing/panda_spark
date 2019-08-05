@@ -1,4 +1,4 @@
-package com.pandatv.streaming;
+package com.pandatv;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;

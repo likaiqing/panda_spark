@@ -42,6 +42,10 @@ import java.util.*;
  * @author: likaiqing
  * @create: 2018-10-22 14:17
  * 新用户及修改头像昵称数据需要实时或者每小时更新
+ * https://www.cnblogs.com/sparkbigdata/p/5458336.html
+ * 一个任务失败就是job 失败，设置spark.task.maxFailures次数为1
+ * 设置spark.speculation为关闭状态（因为慢任务推测其实非常消耗性能，所以关闭后可以显著的提高Spark Streaming处理性能）
+ * Spark streaming on kafka的话，假如job失败后可以设置kafka的auto.offset.reset为largest的方式会自动恢复job的执行。
  **/
 public class RankGift {
 
@@ -94,9 +98,6 @@ public class RankGift {
         }
         SparkConf conf = new SparkConf().setAppName(name);
         conf.set("spark.streaming.kafka.maxRatePerPartition", maxRatePerPartition);
-        /**
-         * //TODO 使用checkpoint
-         */
         JavaStreamingContext ssc = new JavaStreamingContext(conf, Durations.seconds(5));
         JavaSparkContext context = ssc.sparkContext();
 

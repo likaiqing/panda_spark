@@ -4,6 +4,7 @@ import com.pandatv.tools.RedisClient;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Transaction;
 
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -12,6 +13,7 @@ import java.util.concurrent.Executors;
  */
 public class App {
     public static void main(String[] args) {
+        new HashMap<String,Integer>();
 //        Properties props = new Properties();
 //        props.put("bootstrap.servers", "t10v.infra.bjtb.pdtv.it:9092");
 //        props.put("acks", "all");
