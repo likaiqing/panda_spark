@@ -11,7 +11,7 @@ object FirstTest {
       .option("port", 9999)
       .load()
     lines.printSchema()
-    import spark.implicits._
+    import spark.implicits._;
     val words = lines.as[String].flatMap(_.split(" "))
     words.printSchema()
     val wordCounts = words.groupBy("value").count()
